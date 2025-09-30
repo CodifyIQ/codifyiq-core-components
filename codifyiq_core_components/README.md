@@ -1,6 +1,6 @@
 # CodifyIQ Common Components
 
-[![Pub Version](https://img.shields.io/pub/v/codifyiq_common_components)](https://pub.dev/packages/codifyiq_common_components) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Pub Version](https://img.shields.io/pub/v/codifyiq_common_components)](https://pub.dev/packages/codifyiq_common_components)
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg)](https://opensource.org/licenses/mit)
 
 **CodifyIQ Common Components** is an open-source Flutter library designed to accelerate mobile and 
@@ -29,3 +29,31 @@ Add the package to your `pubspec.yaml`:
 ```yaml
 dependencies:
   codifyiq_common_components: ^0.1.0
+  
+```
+
+## Widgets
+
+### `TermsAndConditionsWidget`
+
+The `TermsAndConditionsWidget` provides a standardized way to display terms and conditions to users and require them to accept before proceeding. It features:
+
+*   Scrollable Markdown view for the terms.
+*   A checkbox for acceptance.
+*   The checkbox is enabled only when the content is non-scrollable or the user has scrolled to the very end of the terms.
+*   Customizable terms content and an `onAccepted` callback.
+*   Defaults to `ipsom lorem` while your legal team works on exact language 
+
+```dart
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: MyAppBarWidget(context: context, showProfile: false),
+        body: TermsAndConditionsWidget(onAccepted: _onAccepted), # pass custom markdown via `termsContent` variable              
+      );
+    }
+
+  _onAccepted() {
+    context.safeNavigate('home');
+  }
+```
