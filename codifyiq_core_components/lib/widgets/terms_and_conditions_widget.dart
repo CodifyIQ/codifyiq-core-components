@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:gpt_markdown/gpt_markdown.dart'; // Ensure this import is present
 
 /// A widget for displaying and accepting terms and conditions with a scrollable
 /// Markdown view and a checkbox for acceptance.
@@ -13,10 +13,15 @@ class TermsAndConditionsWidget extends StatefulWidget {
   /// Callback invoked when the terms are accepted.
   final VoidCallback? onAccepted;
 
-  const TermsAndConditionsWidget({super.key, this.termsContent, this.onAccepted});
+  const TermsAndConditionsWidget({
+    super.key,
+    this.termsContent,
+    this.onAccepted,
+  });
 
   @override
-  TermsAndConditionsWidgetState createState() => TermsAndConditionsWidgetState();
+  TermsAndConditionsWidgetState createState() =>
+      TermsAndConditionsWidgetState();
 }
 
 /// The state for [TermsAndConditionsWidget], managing scroll position and acceptance state.
@@ -74,10 +79,13 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     final currentPosition = _scrollController.position.pixels;
 
     // Enable acceptance if content is non-scrollable or scrolled to the end
-    if (maxScrollExtent <= 0 || currentPosition >= maxScrollExtent - 50) {
-      setState(() {
-        _canAccept = true;
-      });
+    // Added a small buffer (e.g., 1.0) for floating point precision with maxScrollExtent
+    if (maxScrollExtent <= 0 || currentPosition >= maxScrollExtent - 1.0) {
+      if (mounted) {
+        setState(() {
+          _canAccept = true;
+        });
+      }
     }
   }
 
@@ -107,7 +115,9 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
           Expanded(child: _buildTermsContainer(context)),
           const SizedBox(height: 16),
           _buildAcceptanceRow(context),
-          _canAccept ? const SizedBox(height: 32.0) : _buildScrollPrompt(context),
+          _canAccept
+              ? const SizedBox(height: 32.0)
+              : _buildScrollPrompt(context),
         ],
       ),
     );
@@ -115,17 +125,27 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
 
   /// Builds the scrollable container for the terms content.
   Widget _buildTermsContainer(BuildContext context) {
+    // Determine the text style for MarkdownWidget.
+    // gpt_markdown might not have a direct equivalent to MarkdownStyleSheet.
+    // You'll need to pass basic text styles or use its specific styling parameters.
+    // For now, let's assume it uses the default text theme or you can pass a TextStyle.
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.all(12),
-      child: Markdown(
+      padding: const EdgeInsets.all(12), // Apply padding to the container
+      child: Scrollbar(
+        // Added Scrollbar for visual feedback
         controller: _scrollController,
-        data: widget.termsContent ?? _defaultTerms,
-        selectable: true,
-        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(p: Theme.of(context).textTheme.bodyMedium),
+        thumbVisibility: true, // Optionally make the scrollbar always visible
+        child: SingleChildScrollView(
+          // Added SingleChildScrollView for scrolling
+          controller: _scrollController,
+          child: GptMarkdown(widget.termsContent ?? _defaultTerms),
+        ),
       ),
     );
   }
@@ -156,7 +176,9 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
       padding: const EdgeInsets.only(top: 8, bottom: 24.0, left: 16, right: 16),
       child: Text(
         'Please scroll to the end of the terms to enable acceptance.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
         textAlign: TextAlign.center,
       ),
     );
