@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart'; // Ensure this import is present
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// A widget for displaying and accepting terms and conditions with a scrollable
 /// Markdown view and a checkbox for acceptance.
@@ -125,24 +125,16 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
 
   /// Builds the scrollable container for the terms content.
   Widget _buildTermsContainer(BuildContext context) {
-    // Determine the text style for MarkdownWidget.
-    // gpt_markdown might not have a direct equivalent to MarkdownStyleSheet.
-    // You'll need to pass basic text styles or use its specific styling parameters.
-    // For now, let's assume it uses the default text theme or you can pass a TextStyle.
-    final textTheme = Theme.of(context).textTheme;
-
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.all(12), // Apply padding to the container
+      padding: const EdgeInsets.all(12),
       child: Scrollbar(
-        // Added Scrollbar for visual feedback
         controller: _scrollController,
-        thumbVisibility: true, // Optionally make the scrollbar always visible
+        thumbVisibility: true,
         child: SingleChildScrollView(
-          // Added SingleChildScrollView for scrolling
           controller: _scrollController,
           child: GptMarkdown(widget.termsContent ?? _defaultTerms),
         ),
