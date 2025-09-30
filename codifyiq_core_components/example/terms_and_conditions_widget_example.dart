@@ -26,9 +26,10 @@ class TermsAndConditionsExample extends StatefulWidget {
 class _TermsAndConditionsExampleState extends State<TermsAndConditionsExample> {
   @override
   Widget build(BuildContext context) {
+    const String customTerms = 'My custom terms and conditions';
     return Scaffold(
       appBar: AppBar(title: Text('Terms and Conditions Example')),
-      body: TermsAndConditionsWidget(onAccepted: _onAccepted),
+      body: TermsAndConditionsWidget(onAccepted: _onAccepted, termsContent: customTerms,),
     );
   }
 
@@ -43,13 +44,6 @@ class _TermsAndConditionsExampleState extends State<TermsAndConditionsExample> {
       const SnackBar(content: Text('Terms and Conditions Accepted!')),
     );
 
-    // TODO: Implement actual acceptance logic:
-    //  * persist acceptance and related metadata
-    //  * navigate to home page or similar location
-    // For example:
-    // SharedPreferences prefs = await SharedPreferences.getInstance();
-    // await prefs.setBool('termsAccepted', true);
-    // Navigator.of(context).pushReplacementNamed('/home');
     debugPrint("Terms and conditions accepted by the user.");
   }
 }
