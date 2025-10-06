@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.codifyiq</groupId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
     <artifactId>codifyiq-core-components</artifactId>
     <packaging>pom</packaging>
 
@@ -42,6 +42,20 @@
                             <arguments>
                                 <argument>pub</argument>
                                 <argument>get</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>flutter-format</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>dart</executable>
+                            <arguments>
+                                <argument>format</argument>
+                                <argument>.</argument>
                             </arguments>
                         </configuration>
                     </execution>
