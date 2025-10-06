@@ -7,6 +7,10 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 /// The checkbox is enabled only when the content is non-scrollable or the user
 /// has scrolled to the end of the terms. Once enabled, it remains clickable.
 class TermsAndConditionsWidget extends StatefulWidget {
+  /// The optional header text to be displayed above the terms.
+  /// Defaults to 'Terms and Conditions'.
+  final String headerText;
+
   /// The Markdown content for the terms and conditions. If null, default text is used.
   final String? termsContent;
 
@@ -15,6 +19,7 @@ class TermsAndConditionsWidget extends StatefulWidget {
 
   const TermsAndConditionsWidget({
     super.key,
+    this.headerText = 'Terms and Conditions',
     this.termsContent,
     this.onAccepted,
   });
@@ -32,9 +37,7 @@ class TermsAndConditionsWidgetState extends State<TermsAndConditionsWidget> {
 
   /// Default Markdown formatted Lorem Ipsum text for terms if none provided.
   static const String _defaultTerms = '''
-# Terms and Conditions
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+# Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 
 ## Section 1
 Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
@@ -112,6 +115,10 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            widget.headerText,
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
           Expanded(child: _buildTermsContainer(context)),
           const SizedBox(height: 16),
           _buildAcceptanceRow(context),
