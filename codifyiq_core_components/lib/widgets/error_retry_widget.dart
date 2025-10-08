@@ -25,22 +25,23 @@ class ErrorRetryWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            color: theme.colorScheme.error,
-            size: 48.0,
-          ),
+          Icon(Icons.error_outline, color: theme.colorScheme.error, size: 48.0),
           const SizedBox(height: 16.0),
           Text(
             errorMessage,
-            style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.error),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.error,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16.0),
           ElevatedButton(
             onPressed: onRetry,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 12.0,
+              ),
               textStyle: theme.textTheme.labelLarge,
             ),
             child: const Text('Retry'),
