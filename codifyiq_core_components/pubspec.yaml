@@ -3,6 +3,9 @@ description: "Contains commonly used functional widgets.  CodifyIQ is open sourc
 version: 0.2.0
 homepage: https://github.com/CodifyIQ/codifyiq-core-components
 
+flutter:
+  uses-material-design: true
+
 environment:
   sdk: ^3.9.2
   flutter: ">=1.17.0"

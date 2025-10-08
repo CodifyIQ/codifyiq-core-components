@@ -41,7 +41,15 @@ The `TermsAndConditionsWidget` provides a standardized way to display terms and 
 *   A checkbox for acceptance.
 *   The checkbox is enabled only when the content is non-scrollable or the user has scrolled to the very end of the terms.
 *   Customizable terms content and an `onAccepted` callback.
-*   Defaults to `ipsom lorem` while your legal team works on exact language
+*   Defaults to `ipsom lorem` while your legal team works on exact language.
+
+### `ErrorRetryWidget`
+
+The `ErrorRetryWidget` provides a standardized way to display errors that can be retried. It features:
+
+*   A required `errorMessage` value that will be displayed.
+*   A retry button.
+*   Customizable retry logic via an `onRetry` callback.
 
 ### Examples
 You can find sample code in the `example` directory as well as more details in the 
