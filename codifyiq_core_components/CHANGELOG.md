@@ -1,3 +1,7 @@
+## 0.2.0
+* Added basic retry widget
+* Added demo page for previewing the widgets
+
 ## 0.1.2
 * Continuing to refine cleanup and publishing
 
