@@ -28,7 +28,10 @@ class _ErrorRetryWidgetExampleState extends State<ErrorRetryWidgetExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Error Retry Example')),
-      body: ErrorRetryWidget(errorMessage: 'The error message I want to display', onRetry: _onRetry),
+      body: ErrorRetryWidget(
+        errorMessage: 'The error message I want to display',
+        onRetry: _onRetry,
+      ),
     );
   }
 

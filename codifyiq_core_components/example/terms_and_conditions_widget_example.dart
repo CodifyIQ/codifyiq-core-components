@@ -23,7 +23,8 @@ class TermsAndConditionsWidgetExample extends StatefulWidget {
 ///
 /// This class manages the state of the example page, including the UI
 /// and the logic for handling the acceptance of terms and conditions.
-class _TermsAndConditionsWidgetExampleState extends State<TermsAndConditionsWidgetExample> {
+class _TermsAndConditionsWidgetExampleState
+    extends State<TermsAndConditionsWidgetExample> {
   @override
   Widget build(BuildContext context) {
     const String customTerms = '''
