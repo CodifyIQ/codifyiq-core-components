@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// A widget for displaying and accepting terms and conditions with a scrollable
-/// Markdown view and a checkbox for acceptance.
+/// Markdown view and a button for acceptance.
 ///
-/// The checkbox is enabled only when the content is non-scrollable or the user
-/// has scrolled to the end of the terms. Once enabled, it remains clickable.
+/// The button displays a prompt to read the terms until the user has scrolled to
+/// the end. Once scrolled, the button text changes to indicate acceptance.
 class TermsAndConditionsWidget extends StatefulWidget {
   /// The optional header text to be displayed above the terms.
   /// Defaults to 'Terms and Conditions'.
@@ -31,8 +31,7 @@ class TermsAndConditionsWidget extends StatefulWidget {
 
 /// The state for [TermsAndConditionsWidget], managing scroll position and acceptance state.
 class TermsAndConditionsWidgetState extends State<TermsAndConditionsWidget> {
-  bool _isAccepted = false;
-  bool _canAccept = false;
+  bool _hasScrolledToEnd = false;
   final ScrollController _scrollController = ScrollController();
 
   /// Default Markdown formatted Lorem Ipsum text for terms if none provided.
@@ -71,12 +70,12 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     super.dispose();
   }
 
-  /// Checks if the content is scrollable and updates [_canAccept] if necessary.
+  /// Checks if the content is scrollable and updates [_hasScrolledToEnd] if necessary.
   ///
   /// If the content fits within the viewport or the user has scrolled to the end,
-  /// [_canAccept] is set to true and remains true.
+  /// [_hasScrolledToEnd] is set to true and remains true.
   void _checkScrollability() {
-    if (!_scrollController.hasClients || !mounted || _canAccept) return;
+    if (!_scrollController.hasClients || !mounted || _hasScrolledToEnd) return;
 
     final maxScrollExtent = _scrollController.position.maxScrollExtent;
     final currentPosition = _scrollController.position.pixels;
@@ -86,7 +85,7 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     if (maxScrollExtent <= 0 || currentPosition >= maxScrollExtent - 1.0) {
       if (mounted) {
         setState(() {
-          _canAccept = true;
+          _hasScrolledToEnd = true;
         });
       }
     }
@@ -97,17 +96,11 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     _checkScrollability();
   }
 
-  /// Handles checkbox state changes and triggers the acceptance callback.
-  void _handleAcceptanceChanged(bool? newValue) {
-    if (newValue == null || !_canAccept) return;
-    setState(() {
-      _isAccepted = newValue;
-    });
-    if (newValue) {
+  /// Handles button press and triggers the acceptance callback.
+  void _handleAcceptance() {
+    if (!_hasScrolledToEnd) return;
       widget.onAccepted?.call();
     }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -120,11 +113,9 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
             style: Theme.of(context).textTheme.headlineLarge,
           ),
           Expanded(child: _buildTermsContainer(context)),
-          const SizedBox(height: 16),
-          _buildAcceptanceRow(context),
-          _canAccept
-              ? const SizedBox(height: 32.0)
-              : _buildScrollPrompt(context),
+          const SizedBox(height: 24),
+          _buildAcceptanceButton(context),
+          const SizedBox(height: 32.0),
         ],
       ),
     );
@@ -149,36 +140,24 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     );
   }
 
-  /// Builds the row containing the checkbox and acceptance text.
-  Widget _buildAcceptanceRow(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Checkbox(
-          value: _isAccepted,
-          onChanged: _canAccept ? _handleAcceptanceChanged : null,
-          semanticLabel: 'Accept terms and conditions',
-        ),
-        Expanded(
+  /// Builds the acceptance button.
+  ///
+  /// The button text changes based on whether the user has scrolled to the end.
+  Widget _buildAcceptanceButton(BuildContext context) {
+    final buttonText = _hasScrolledToEnd
+        ? 'I have read and agree to the Terms and Conditions'
+        : 'Please read the entire Terms and Conditions before accepting';
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: _hasScrolledToEnd ? _handleAcceptance : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Text(
-            'I have read and agree to the Terms and Conditions.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds the prompt to scroll to the end, shown only when [_canAccept] is false.
-  Widget _buildScrollPrompt(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 24.0, left: 16, right: 16),
-      child: Text(
-        'Please scroll to the end of the terms to enable acceptance.',
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+            buttonText,
         textAlign: TextAlign.center,
+      ),
+        ),
       ),
     );
   }
