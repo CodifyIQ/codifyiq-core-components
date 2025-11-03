@@ -28,8 +28,6 @@ class _TermsAndConditionsWidgetExampleState
   @override
   Widget build(BuildContext context) {
     const String customTerms = '''
-    # Terms and Conditions
-
     **Last Updated: October 6, 2025**
 
     Welcome to [App/Website Name] ("we," "us," or "our"). By accessing or using our application or website (collectively, the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, including the specific condition regarding Los Angeles Dodgers fandom, you may not use the Service.
