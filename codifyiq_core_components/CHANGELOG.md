@@ -1,4 +1,7 @@
 ## 0.2.0
+* Update terms and conditions widget for more consistent formatting
+
+## 0.2.0
 * Added basic retry widget
 * Added demo page for previewing the widgets
 
