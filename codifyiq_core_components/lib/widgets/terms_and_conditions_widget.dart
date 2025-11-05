@@ -99,8 +99,9 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
   /// Handles button press and triggers the acceptance callback.
   void _handleAcceptance() {
     if (!_hasScrolledToEnd) return;
-      widget.onAccepted?.call();
-    }
+    widget.onAccepted?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -153,10 +154,7 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
         onPressed: _hasScrolledToEnd ? _handleAcceptance : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Text(
-            buttonText,
-        textAlign: TextAlign.center,
-      ),
+          child: Text(buttonText, textAlign: TextAlign.center),
         ),
       ),
     );
