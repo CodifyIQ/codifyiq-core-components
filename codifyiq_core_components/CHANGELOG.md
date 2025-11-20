@@ -1,3 +1,7 @@
+## 0.4.0 
+* Added `BrightnessButton`
+* Refactored examples to work with light/dark mode
+
 ## 0.3.0
 * Update terms and conditions widget for more consistent formatting
 

@@ -14,6 +14,8 @@ dependencies:
   flutter:
     sdk: flutter
   gpt_markdown: ^1.1.4
+  adaptive_theme: ^3.7.0
+  go_router: ^17.0.0
 
 dev_dependencies:
   flutter_test:
