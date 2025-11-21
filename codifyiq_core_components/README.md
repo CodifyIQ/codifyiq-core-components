@@ -33,6 +33,11 @@ dependencies:
 
 ## Widgets
 
+### `BrightnessButton`
+
+The `BrightnessButton` is a simple wrapper around AdaptiveTheme to toggle light/dark mode. It can be 
+combined with all other widgets in this library.
+
 ### `TermsAndConditionsWidget`
 
 The `TermsAndConditionsWidget` provides a standardized way to display terms and conditions to users and require them to accept before proceeding. It features:

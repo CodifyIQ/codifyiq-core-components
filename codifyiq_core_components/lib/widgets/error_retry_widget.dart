@@ -13,10 +13,10 @@ class ErrorRetryWidget extends StatelessWidget {
 
   /// Creates an [ErrorRetryWidget].
   const ErrorRetryWidget({
-    Key? key,
+    super.key,
     required this.errorMessage,
     required this.onRetry,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
