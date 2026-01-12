@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0 
+* Fixed static analysis warning
+
 ## 0.4.0 
 * Added `BrightnessButton`
 * Refactored examples to work with light/dark mode

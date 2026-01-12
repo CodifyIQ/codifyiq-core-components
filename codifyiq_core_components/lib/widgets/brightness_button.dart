@@ -21,7 +21,6 @@ class BrightnessButton extends StatelessWidget {
         case AdaptiveThemeMode.dark:
           return Icons.dark_mode_outlined;
         case AdaptiveThemeMode.system:
-        default:
           return Icons.brightness_auto;
       }
     }
