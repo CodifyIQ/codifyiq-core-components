@@ -29,21 +29,21 @@ class BrightnessButton extends StatelessWidget {
     return MenuAnchor(
       builder:
           (BuildContext context, MenuController controller, Widget? child) {
-        return IconButton(
-          icon: Icon(
-            getIcon(),
-            color: Theme.of(context).colorScheme.inversePrimary,
-          ),
-          tooltip: 'Switch Brightness Theme',
-          onPressed: () {
-            if (controller.isOpen) {
-              controller.close();
-            } else {
-              controller.open();
-            }
+            return IconButton(
+              icon: Icon(
+                getIcon(),
+                color: Theme.of(context).colorScheme.inversePrimary,
+              ),
+              tooltip: 'Switch Brightness Theme',
+              onPressed: () {
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+            );
           },
-        );
-      },
       menuChildren: <Widget>[
         MenuItemButton(
           onPressed: () => adaptiveTheme.setLight(),
@@ -64,8 +64,9 @@ class BrightnessButton extends StatelessWidget {
         MenuItemButton(
           onPressed: () => adaptiveTheme.setSystem(),
           leadingIcon: const Icon(Icons.brightness_auto),
-          trailingIcon:
-              adaptiveTheme.mode.isSystem ? const Icon(Icons.check) : null,
+          trailingIcon: adaptiveTheme.mode.isSystem
+              ? const Icon(Icons.check)
+              : null,
           child: const Text('System'),
         ),
       ],

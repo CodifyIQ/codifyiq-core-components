@@ -1,3 +1,5 @@
+# Changelog
+
 ## 0.4.0 
 * Added `BrightnessButton`
 * Refactored examples to work with light/dark mode
