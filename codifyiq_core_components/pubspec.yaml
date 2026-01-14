@@ -1,6 +1,6 @@
 name: codifyiq_core_components
 description: "Contains commonly used functional widgets.  CodifyIQ is open sourcing these for easy licensing and usage via standard pub mechanisms."
-version: 0.4.0
+version: 0.6.0
 homepage: https://github.com/CodifyIQ/codifyiq-core-components
 
 flutter:
