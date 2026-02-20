@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 
@@ -18,28 +19,38 @@ class WidgetCatalog extends StatelessWidget {
       'description': 'Generic retry widget',
       'route': ErrorRetryWidgetExample(),
     },
+    {
+      'name': 'AI Progress Indicator',
+      'description': 'Progress indicator with shimmer effect for AI actions',
+      'route': AiProgressIndicatorExample(),
+    },
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // Adjust based on screen size if needed
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.75,
-        ),
-        itemCount: widgetList.length,
-        itemBuilder: (context, index) {
-          return WidgetCard(
-            name: widgetList[index]['name'],
-            description: widgetList[index]['description'],
-            route: widgetList[index]['route'],
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 600;
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: GridView.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: isWide ? 2 : 1,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: isWide ? 1.5 : 2.5,
+            ),
+            itemCount: widgetList.length,
+            itemBuilder: (context, index) {
+              return WidgetCard(
+                name: widgetList[index]['name'],
+                description: widgetList[index]['description'],
+                route: widgetList[index]['route'],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

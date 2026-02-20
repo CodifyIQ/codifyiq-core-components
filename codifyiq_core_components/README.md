@@ -48,6 +48,22 @@ The `TermsAndConditionsWidget` provides a standardized way to display terms and 
 *   Customizable terms content and an `onAccepted` callback.
 *   Defaults to `ipsom lorem` while your legal team works on exact language.
 
+### `AiProgressIndicator`
+
+The `AiProgressIndicator` provides a subtle visual cue that an AI-enabled feature is being executed,
+distinguishing it from standard loading states. It combines a circular progress indicator with a
+shimmer effect that sweeps across the widget. Colors are derived from the app's theme by default
+(`onSurface`, `primary`, `tertiary`), but can be tailored by wrapping the widget in a custom `Theme`
+or providing a `textStyle` override. It features:
+
+*   A required `text` message displayed alongside the progress indicator.
+*   A multi-color shimmer gradient derived from the app's theme, customizable via `ThemeData`/`ColorScheme`.
+*   Configurable `shimmerPeriod` to control the speed of the shimmer sweep.
+*   Configurable `shimmerIntensity` (0.0–1.0) to boost highlight color contrast — brightness-aware for both light and dark modes.
+*   An optional `backgroundColor` to increase contrast against certain surfaces.
+*   An optional `textStyle` override for the displayed text.
+*   An optional `showProgressIndicator` flag (defaults to `true`) to hide the circular progress indicator and show only shimmer text.
+
 ### `ErrorRetryWidget`
 
 The `ErrorRetryWidget` provides a standardized way to display errors that can be retried. It features:

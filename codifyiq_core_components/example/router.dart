@@ -3,6 +3,7 @@ import 'package:codifyiq_core_components/widgets/brightness_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 import 'widget_catalog.dart';
@@ -52,6 +53,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/error-retry",
         builder: (BuildContext context, GoRouterState state) {
           return ErrorRetryWidgetExample();
+        },
+      ),
+      GoRoute(
+        path: "/ai-progress-indicator",
+        builder: (BuildContext context, GoRouterState state) {
+          return AiProgressIndicatorExample();
         },
       ),
     ],
