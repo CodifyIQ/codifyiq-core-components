@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+* New widget: `AiProgressIndicator` — a subtle shimmer progress indicator to visually communicate that an AI-enabled feature is being executed
+  * Configurable shimmer sweep speed and brightness-aware color intensity
+  * Optional background color for increased visibility
+  * Optional ability to hide the circular progress indicator for a text-only shimmer
+  * Theme-derived colors by default, with full customization support via `Theme`/`ColorScheme` or `textStyle`
+* Added package barrel file — import all widgets with `import 'package:codifyiq_core_components/codifyiq_core_components.dart'`
+* Reduced transitive dependency footprint for consumers
+
 ## 0.5.0 
 * Fixed static analysis warning
 

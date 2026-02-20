@@ -22,8 +22,18 @@ is leveraging this library.
 Please see [terms_and_conditions_widget_example.dart](./terms_and_conditions_widget_example.dart) 
 for usage details around the `TermsAndConditionsWidget`.
 
+### `AiProgressIndicator`
+A subtle progress indicator intended to communicate that an AI-enabled feature is being executed.
+It combines a circular progress indicator with a shimmer effect. Colors are derived from the app's
+theme by default but can be tailored via a custom `Theme`/`ColorScheme` or `textStyle` override.
+Supports configurable sweep speed, brightness-aware color intensity boost, an optional background
+color for increased visibility, and the ability to hide the circular progress indicator.
+
+Please see [ai_progress_indicator_example.dart](./ai_progress_indicator_example.dart)
+for usage details around the `AiProgressIndicator`.
+
 ### `ErrorRetryWidget`
-A widget for displaying a standardized error message with a "Retry" button. This 
+A widget for displaying a standardized error message with a "Retry" button. This
 is useful for handling network failures or other recoverable errors.
 
 Please see [error_retry_widget_example.dart](./error_retry_widget_example.dart)
