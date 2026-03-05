@@ -20,12 +20,20 @@ import 'package:flutter/material.dart';
 /// reviewer submits the form. For fully custom reviewer UIs, pass a widget
 /// via [reviewerLoginContent] instead.
 ///
+/// ## Processing State
+///
+/// Authentication handshakes can take several seconds. Set [isProcessing] to
+/// `true` after a sign-in button is tapped to replace the buttons with a
+/// progress indicator and optional [processingMessage]. This prevents
+/// duplicate taps and gives the user visual feedback that login is underway.
+///
 /// ## Usage
 ///
 /// ```dart
 /// SocialSignInScreen(
 ///   logo: Image.asset('assets/logo.png', height: 120),
 ///   tagline: Text('Welcome back!'),
+///   isProcessing: _isSigningIn,
 ///   signInButtons: [
 ///     SocialSignInButton(
 ///       label: 'Continue with Google',
@@ -62,6 +70,8 @@ class SocialSignInScreen extends StatefulWidget {
     this.reviewerLoginContent,
     this.reviewerLoginPrompt = 'Reviewer Sign In',
     this.appBar,
+    this.isProcessing = false,
+    this.processingMessage = 'Signing in…',
   }) : assert(
          !reviewerLoginEnabled ||
              onReviewerSignIn != null ||
@@ -129,6 +139,20 @@ class SocialSignInScreen extends StatefulWidget {
   ///
   /// Defaults to `'Reviewer Sign In'`.
   final String reviewerLoginPrompt;
+
+  /// Whether a sign-in operation is currently in progress.
+  ///
+  /// When `true`, the sign-in buttons are replaced with a
+  /// [CircularProgressIndicator] and [processingMessage]. Use this to
+  /// indicate that an authentication handshake is underway after the user
+  /// taps a sign-in button.
+  final bool isProcessing;
+
+  /// Message displayed below the progress indicator while [isProcessing]
+  /// is `true`.
+  ///
+  /// Defaults to `'Signing in…'`.
+  final String processingMessage;
 
   @override
   State<SocialSignInScreen> createState() => _SocialSignInScreenState();
@@ -233,7 +257,17 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
                 ),
               ],
               const SizedBox(height: 24),
-              if (_isReviewerLoginRevealed) ...[
+              if (widget.isProcessing) ...[
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  widget.processingMessage,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ] else if (_isReviewerLoginRevealed) ...[
                 widget.reviewerLoginContent ??
                     _ReviewerLoginForm(onSignIn: widget.onReviewerSignIn!),
                 const SizedBox(height: 16),
@@ -246,9 +280,11 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
                   ),
                 ),
               ] else
-                ...widget.signInButtons.expand(
-                  (button) => [button, const SizedBox(height: 12)],
-                ),
+                for (int i = 0; i < widget.signInButtons.length; i++) ...[
+                  widget.signInButtons[i],
+                  if (i < widget.signInButtons.length - 1)
+                    const SizedBox(height: 12),
+                ],
             ],
           ),
         ),

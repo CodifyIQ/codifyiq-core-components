@@ -9,7 +9,7 @@ class WidgetCatalog extends StatelessWidget {
   const WidgetCatalog({super.key});
 
   // List of widget metadata for the catalog
-  static const List<Map<String, dynamic>> widgetList = [
+  static final List<Map<String, dynamic>> widgetList = [
     {
       'name': 'Social Sign-In Screen',
       'description':

@@ -79,6 +79,8 @@ their own branding, buttons, and authentication callbacks. It features:
 
 *   A customizable logo, tagline, sign-in prompt, and footer.
 *   An error message container styled from the app's theme.
+*   A built-in processing state that replaces sign-in buttons with a progress indicator during
+    authentication, preventing duplicate taps.
 *   `SocialSignInButton` — a companion widget for consistent button styling with icon and label.
 *   An optional **reviewer login easter egg** for app store submissions: tapping the logo a
     configurable number of times (default 5) reveals a built-in email/password form for app store

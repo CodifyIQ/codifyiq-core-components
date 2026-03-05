@@ -1,15 +1,40 @@
 import 'package:codifyiq_core_components/widgets/social_sign_in_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 /// An example page that demonstrates the usage of [SocialSignInScreen].
 ///
 /// This widget displays a sign-in screen with placeholder branding,
 /// two social sign-in buttons (Google and Apple), a footer, and the
 /// reviewer login easter egg enabled (tap the logo 5 times to reveal it).
-class SocialSignInScreenExample extends StatelessWidget {
+///
+/// Tapping either social button simulates a login handshake by enabling
+/// the processing state for a few seconds.
+class SocialSignInScreenExample extends StatefulWidget {
   /// Creates an instance of [SocialSignInScreenExample].
   const SocialSignInScreenExample({super.key});
+
+  @override
+  State<SocialSignInScreenExample> createState() =>
+      _SocialSignInScreenExampleState();
+}
+
+class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
+  bool _isProcessing = false;
+
+  void _simulateSignIn(String provider) {
+    setState(() => _isProcessing = true);
+
+    // Simulate a multi-second authentication handshake.
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$provider authentication complete (simulated)'),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,25 +48,15 @@ class SocialSignInScreenExample extends StatelessWidget {
         ),
         textAlign: TextAlign.center,
       ),
+      isProcessing: _isProcessing,
       signInButtons: [
         SocialSignInButton(
           label: 'Continue with Google',
-          // Official Google "G" logo — brand colors baked into the SVG,
-          // not affected by app theme.
-          icon: SvgPicture.asset(
-            'example/assets/images/google-logo.svg',
-            width: 18,
-            height: 18,
-          ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Your Google authentication logic would be handled here',
-                ),
-              ),
-            );
-          },
+          // In production, use the official Google "G" SVG with brand
+          // colors baked in. A placeholder icon is used here to avoid
+          // bundling trademarked assets in the published package.
+          icon: const Icon(Icons.g_mobiledata, size: 24),
+          onPressed: () => _simulateSignIn('Google'),
         ),
         SocialSignInButton(
           label: 'Continue with Apple',
@@ -54,15 +69,7 @@ class SocialSignInScreenExample extends StatelessWidget {
                 ? Colors.black
                 : Colors.white,
           ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Your Apple authentication logic would be handled here',
-                ),
-              ),
-            );
-          },
+          onPressed: () => _simulateSignIn('Apple'),
         ),
       ],
       reviewerLoginEnabled: true,
