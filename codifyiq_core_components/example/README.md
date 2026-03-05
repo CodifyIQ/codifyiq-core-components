@@ -39,3 +39,12 @@ is useful for handling network failures or other recoverable errors.
 Please see [error_retry_widget_example.dart](./error_retry_widget_example.dart)
 for usage details around the `ErrorRetryWidget`.
 
+### `SocialSignInScreen`
+A complete sign-in screen layout with logo, tagline, social sign-in buttons, error display, and
+footer. Includes an optional reviewer login easter egg — tap the logo 5 times to reveal an
+email/password form for app store reviewers. The example demonstrates brand-compliant icon usage
+with the official Google logo SVG and brightness-aware Apple icon colors.
+
+Please see [social_sign_in_screen_example.dart](./social_sign_in_screen_example.dart)
+for usage details around the `SocialSignInScreen`.
+

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
+import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 import 'widget_catalog.dart';
 
@@ -59,6 +60,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/ai-progress-indicator",
         builder: (BuildContext context, GoRouterState state) {
           return AiProgressIndicatorExample();
+        },
+      ),
+      GoRoute(
+        path: "/social-sign-in",
+        builder: (BuildContext context, GoRouterState state) {
+          return SocialSignInScreenExample();
         },
       ),
     ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
+import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 
 class WidgetCatalog extends StatelessWidget {
@@ -10,19 +11,25 @@ class WidgetCatalog extends StatelessWidget {
   // List of widget metadata for the catalog
   static const List<Map<String, dynamic>> widgetList = [
     {
+      'name': 'Social Sign-In Screen',
+      'description':
+          'Generic social sign-in screen layout with customizable branding',
+      'route': SocialSignInScreenExample(),
+    },
+    {
       'name': 'Terms and Conditions',
       'description': 'A general purpose terms and conditions widget',
       'route': TermsAndConditionsWidgetExample(),
     },
     {
-      'name': 'Error Retry',
-      'description': 'Generic retry widget',
-      'route': ErrorRetryWidgetExample(),
-    },
-    {
       'name': 'AI Progress Indicator',
       'description': 'Progress indicator with shimmer effect for AI actions',
       'route': AiProgressIndicatorExample(),
+    },
+    {
+      'name': 'Error Retry',
+      'description': 'Generic retry widget',
+      'route': ErrorRetryWidgetExample(),
     },
   ];
 
@@ -38,7 +45,7 @@ class WidgetCatalog extends StatelessWidget {
               crossAxisCount: isWide ? 2 : 1,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: isWide ? 1.5 : 2.5,
+              childAspectRatio: isWide ? 3.0 : 5.0,
             ),
             itemCount: widgetList.length,
             itemBuilder: (context, index) {

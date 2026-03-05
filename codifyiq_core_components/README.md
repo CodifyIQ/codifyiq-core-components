@@ -27,8 +27,7 @@ Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  codifyiq_common_components: ^0.1.0
-  
+  codifyiq_core_components: ^0.7.0
 ```
 
 ## Widgets
@@ -72,6 +71,43 @@ The `ErrorRetryWidget` provides a standardized way to display errors that can be
 *   A retry button.
 *   Customizable retry logic via an `onRetry` callback.
 
+### `SocialSignInScreen`
+
+The `SocialSignInScreen` provides a complete sign-in screen layout with logo, tagline, social
+sign-in buttons, error display, and footer. It is purely presentational — consuming apps inject
+their own branding, buttons, and authentication callbacks. It features:
+
+*   A customizable logo, tagline, sign-in prompt, and footer.
+*   An error message container styled from the app's theme.
+*   `SocialSignInButton` — a companion widget for consistent button styling with icon and label.
+*   An optional **reviewer login easter egg** for app store submissions: tapping the logo a
+    configurable number of times (default 5) reveals a built-in email/password form for app store
+    reviewers who don't have social accounts. Just provide an `onReviewerSignIn` callback:
+
+    ```dart
+    SocialSignInScreen(
+      reviewerLoginEnabled: true,
+      onReviewerSignIn: (email, password) => _signIn(email, password),
+      // ...
+    )
+    ```
+
+    For a fully custom reviewer UI, pass a widget via `reviewerLoginContent` instead to override
+    the built-in form.
+
+> **Brand compliance:** Social sign-in providers require their official logos with brand-compliant
+> colors. This library does not bundle provider logos, as they are trademarked assets that cannot
+> be redistributed in an open-source package. Obtain them directly from each provider:
+> * **Google:** [Google Identity Branding Guidelines](https://developers.google.com/identity/branding-guidelines)
+> * **Apple:** [Apple Design Resources](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple)
+
 ### Examples
-You can find sample code in the `example` directory as well as more details in the 
+You can find sample code in the `example` directory as well as more details in the
 [Examples README](./example/README.md) for details.
+
+## Works with
+
+| Task | Guide |
+|------|-------|
+| Firebase auth (Flutter) — sign-in flows, Riverpod wiring, GoRouter guards | [codifyiq_firebase_authentication README](https://github.com/CodifyIQ/codifyiq-firebase-authentication/blob/dev/codifyiq_firebase_authentication/README.md) |
+| Firebase JWT verification (FastAPI backend) | [fastapi-cloudauth-lenient README](https://github.com/CodifyIQ/fastapi-cloudauth-lenient#readme) |
