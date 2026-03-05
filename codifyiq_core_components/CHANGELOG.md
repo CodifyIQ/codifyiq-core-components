@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+* New widget: `SocialSignInScreen` — customizable sign-in screen with logo, tagline, social buttons, error display, and footer
+  * Optional reviewer login easter egg for app store submissions — tap the logo to reveal an email/password form for reviewers
+* New widget: `SocialSignInButton` — consistent button styling for social sign-in providers
+
 ## 0.6.0
 * New widget: `AiProgressIndicator` — a subtle shimmer progress indicator to visually communicate that an AI-enabled feature is being executed
   * Configurable shimmer sweep speed and brightness-aware color intensity

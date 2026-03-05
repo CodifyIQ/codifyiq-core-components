@@ -4,4 +4,5 @@ library;
 export 'widgets/ai_progress_indicator.dart';
 export 'widgets/brightness_button.dart';
 export 'widgets/error_retry_widget.dart';
+export 'widgets/social_sign_in_screen.dart';
 export 'widgets/terms_and_conditions_widget.dart';
