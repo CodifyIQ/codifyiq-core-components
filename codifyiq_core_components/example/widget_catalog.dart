@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ai_progress_indicator_example.dart';
+import 'chat_widget_example.dart';
 import 'error_retry_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
@@ -8,7 +9,7 @@ import 'terms_and_conditions_widget_example.dart';
 class WidgetCatalog extends StatelessWidget {
   const WidgetCatalog({super.key});
 
-  // List of widget metadata for the catalog
+  // List of metadata for the widget catalog
   static final List<Map<String, dynamic>> widgetList = [
     {
       'name': 'Social Sign-In Screen',
@@ -30,6 +31,12 @@ class WidgetCatalog extends StatelessWidget {
       'name': 'Error Retry',
       'description': 'Generic retry widget',
       'route': ErrorRetryWidgetExample(),
+    },
+    {
+      'name': 'Chat Widget',
+      'description':
+          'Reusable conversational chat with pluggable backend, suggestion chips, and theme-aware bubbles',
+      'route': ChatWidgetExample(),
     },
   ];
 

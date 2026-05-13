@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
+import 'chat_widget_example.dart';
 import 'error_retry_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
@@ -66,6 +67,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/social-sign-in",
         builder: (BuildContext context, GoRouterState state) {
           return SocialSignInScreenExample();
+        },
+      ),
+      GoRoute(
+        path: "/chat-super-widget",
+        builder: (BuildContext context, GoRouterState state) {
+          return ChatWidgetExample();
         },
       ),
     ],

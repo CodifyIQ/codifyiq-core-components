@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+* New widget: `ChatWidget` — reusable conversational chat surface backed by [flutter_chat_ui](https://pub.dev/packages/flutter_chat_ui)
+  * Pluggable `ChatBackend` interface so consumers can wire in any chat service (REST, streaming, local LLM) without coupling to a specific state-management library
+  * Built-in suggestion chips, error banner, and composer with thinking-state hint
+  * Optional `initialMessage` to auto-send a first user turn after the greeting (for "explain this" flows)
+  * `onMutations` callback so the host can refresh dependent state when a turn reports side effects
+  * Theme-aware message bubbles, agent avatar, and configurable user/agent display names and identifiers
+
 ## 0.7.0
 * New widget: `SocialSignInScreen` — customizable sign-in screen with logo, tagline, social buttons, error display, and footer
   * Optional reviewer login easter egg for app store submissions — tap the logo to reveal an email/password form for reviewers
