@@ -71,6 +71,42 @@ The `ErrorRetryWidget` provides a standardized way to display errors that can be
 *   A retry button.
 *   Customizable retry logic via an `onRetry` callback.
 
+### `NotificationBellButton` / Notification Center
+
+A Play Store-style notification center for tracking long-running, user-initiated tasks (uploads,
+downloads, multi-step background work) without blocking the UI. The widget set includes:
+
+*   `NotificationBellButton` — an `AppBar` action with a Material 3 unread badge. Opens an anchored
+    dropdown panel on wide viewports and pushes a full-screen `NotificationCenterPage` (with back
+    button) on narrow/mobile viewports. The breakpoint, panel size, drop offset, and trailing edge
+    inset are all configurable.
+*   `NotificationCenterController` — a `ChangeNotifier` exposing `start` / `updateProgress` /
+    `complete` / `fail` / `dismiss` / `clearCompleted` / `clearAll` / `markAllSeen`. Consumers
+    drive the controller from their own task layer (HTTP, isolates, platform workers) — the widget
+    is UI-only and does not perform background work.
+*   `NotificationCenterPanel` / `NotificationCenterPage` — list view rendering three sections
+    (**In progress**, **Failed**, **Completed**) with progress bars on running rows, status icons,
+    optional `Open` / `Retry` actions, individual dismiss, and a bulk "Clear completed" header
+    action.
+*   `NotificationCenterScope` — an `InheritedNotifier` for ambient controller lookup so descendant
+    widgets can post updates without prop-drilling.
+
+```dart
+final controller = NotificationCenterController();
+
+// Anywhere in your task layer:
+controller.start(id: 'job-1', title: 'Uploading invoice.pdf', progress: 0);
+controller.updateProgress('job-1', progress: 0.42);
+controller.complete(
+  'job-1',
+  description: 'Saved to Documents/invoice.pdf',
+  action: NotificationItemAction(label: 'Open', onPressed: openFile),
+);
+
+// In your AppBar:
+AppBar(actions: [NotificationBellButton(controller: controller)]);
+```
+
 ### `SocialSignInScreen`
 
 The `SocialSignInScreen` provides a complete sign-in screen layout with logo, tagline, social

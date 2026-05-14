@@ -74,9 +74,9 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
       ],
       reviewerLoginEnabled: true,
       onReviewerSignIn: (email, password) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Reviewer sign-in: $email')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Reviewer sign-in: $email')));
       },
       footer: Text(
         '© 2025-2026 Vandelay Industries. All Rights Reserved.',
