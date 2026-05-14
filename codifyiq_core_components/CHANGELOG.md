@@ -38,6 +38,7 @@
   * Optional `NotificationCenterScope` `InheritedNotifier` exposes the controller ambiently so any descendant widget can post updates without prop-drilling
   * UI-only: consumers wire the controller to their own task layer (HTTP, isolates, platform background workers, etc.)
 * `BrightnessButton` now renders its dropdown as a Material 3 surface (rounded corners, elevation, surface tint) and accepts `menuAlignmentOffset` / `menuScreenEdgeInset` to control drop distance and the gap from the trailing viewport edge
+* `BrightnessButton` now renders its dropdown as a Material 3 surface (rounded corners, elevation, surface tint) and accepts `menuAlignmentOffset` / `menuScreenEdgeInset` to control drop distance and the gap from the trailing viewport edge — matching the new `NotificationBellButton` styling
 * New widget: `PdfViewerWidget` — a reusable PDF viewer backed by `pdfrx`
   * Render a PDF from any `PdfSource`: network `Uri`, local file path, or in-memory `Uint8List`
   * Pinch-to-zoom on mobile; Ctrl/Cmd + scroll-wheel and on-screen +/− buttons on web
