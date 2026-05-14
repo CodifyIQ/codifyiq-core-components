@@ -30,6 +30,19 @@
   * Page change and document-loaded callbacks, plus a customizable error builder
 * Added `pdfrx ^2.3.3` dependency — required to render PDF documents
 * **Breaking:** minimum SDK requirements raised to Dart `^3.10.0` and Flutter `>=3.41.0` to satisfy `pdfrx`
+* New widget: `ImageViewerWidget` — full-screen image viewer foundation
+  * Displays images from asset, network, or local file sources (with custom
+    `ImageProvider` support for memory, cached, or third-party providers)
+  * Horizontal swipe between images, pinch / scroll-wheel zoom, drag pan,
+    and animated double-tap zoom centered on the tap point
+  * Swipe-between-pages is automatically disabled while an image is zoomed
+    so pan gestures don't turn the page
+  * Built-in Share, Download, and Delete menu items wired to consumer
+    callbacks; menu items hide individually (and the menu hides entirely)
+    when their callback is null
+  * Customizable loading and error placeholders, page indicator format, and
+    background/foreground colors; optional `Hero` tags per image
+  * Responsive layout suitable for mobile, tablet, and desktop
 * New widget: `SocialSignInScreen` — customizable sign-in screen with logo, tagline, social buttons, error display, and footer
   * Optional reviewer login easter egg for app store submissions — tap the logo to reveal an email/password form for reviewers
   * Built-in processing state replaces sign-in buttons with a progress indicator during authentication, preventing duplicate taps
