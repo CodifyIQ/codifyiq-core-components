@@ -139,6 +139,56 @@ their own branding, buttons, and authentication callbacks. It features:
 > * **Google:** [Google Identity Branding Guidelines](https://developers.google.com/identity/branding-guidelines)
 > * **Apple:** [Apple Design Resources](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple)
 
+### `PdfViewerWidget`
+
+A reusable PDF viewer backed by [`pdfrx`](https://pub.dev/packages/pdfrx).
+Renders a document from a network URI, a local file path, or in-memory bytes
+via a single `PdfSource` parameter.
+
+```dart
+PdfViewerWidget(
+  source: PdfSource.uri(Uri.parse('https://example.com/file.pdf')),
+  enableSearch: true,
+  onDocumentLoaded: (pageCount) => debugPrint('Loaded $pageCount pages'),
+)
+```
+
+**What this adds on top of `pdfrx`:**
+
+*   **Built-in search UI.** `pdfrx` exposes `PdfTextSearcher` (state, match data,
+    paint callback) but ships no widget. This widget supplies the Material
+    search bar, debounced input, a match counter, and next/previous controls
+    that wrap around at both ends of the document.
+*   **Consistent zoom bounds.** The literal `minScale` and `maxScale` you pass
+    are honored by every input method (pinch, +/− buttons, Ctrl/Cmd +
+    scroll-wheel) — `pdfrx`'s default sizing and zoom-stop behavior would
+    otherwise let the buttons drive zoom outside those bounds.
+*   **On-screen web zoom buttons** and a **page indicator overlay**, neither of
+    which `pdfrx` provides out of the box.
+*   **A unified `PdfSource` parameter** in place of `pdfrx`'s separate
+    `PdfViewer.uri` / `.file` / `.data` constructors. `PdfSource` variants are
+    value-equal, so swapping documents at runtime works cleanly with
+    state-management diffing.
+
+Pinch-to-zoom, keyboard navigation, and page tracking are `pdfrx` defaults and
+pass through unchanged.
+
+For PDFs behind an authenticated endpoint, pass HTTP headers via
+`PdfSource.uri`:
+
+```dart
+PdfViewerWidget(
+  source: PdfSource.uri(
+    Uri.parse('https://api.example.com/documents/42.pdf'),
+    headers: {'Authorization': 'Bearer $jwt'},
+  ),
+)
+```
+
+> **Web note:** PDFs loaded via `PdfSource.uri` require the target server to
+> send appropriate CORS headers. `PdfSource.file` is not supported on the web
+> platform.
+
 ### Examples
 You can find sample code in the `example` directory as well as more details in the
 [Examples README](./example/README.md) for details.

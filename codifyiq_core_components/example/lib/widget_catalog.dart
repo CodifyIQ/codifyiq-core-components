@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
 import 'notification_center_example.dart';
+import 'pdf_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 
@@ -37,6 +38,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Play Store-style bell with progress tracking for long-running tasks',
       'route': NotificationCenterExample(),
+    },
+    {
+      'name': 'PDF Viewer',
+      'description':
+          'PDF viewer with zoom, page indicator, and optional text search',
+      'route': PdfViewerWidgetExample(),
     },
   ];
 
