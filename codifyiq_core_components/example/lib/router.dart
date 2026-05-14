@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
+import 'notification_center_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 import 'widget_catalog.dart';
@@ -24,15 +25,9 @@ ShellRoute _getMainApplicationShellRoute() {
     builder: (BuildContext context, GoRouterState state, Widget child) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(
-            'Material Design Widget Catalog',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.inversePrimary,
-            ),
-          ),
+          title: const Text('Material Design Widget Catalog'),
           centerTitle: true,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          actions: [BrightnessButton()],
+          actions: const [BrightnessButton()],
         ),
         body: child,
       );
@@ -66,6 +61,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/social-sign-in",
         builder: (BuildContext context, GoRouterState state) {
           return SocialSignInScreenExample();
+        },
+      ),
+      GoRoute(
+        path: "/notification-center",
+        builder: (BuildContext context, GoRouterState state) {
+          return NotificationCenterExample();
         },
       ),
     ],
