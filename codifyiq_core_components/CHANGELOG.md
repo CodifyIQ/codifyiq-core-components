@@ -2,7 +2,15 @@
 
 ## 0.7.0
 * New widget set: `NotificationBellButton`, `NotificationCenterPanel`, `NotificationCenterPage`, and `NotificationCenterController` — a Play Store-style notification center for tracking long-running, user-initiated tasks
-  * App-bar bell with a Material 3 unread badge that opens an anchored dropdown panel
+  * App-bar bell with a stoplight-coded Material 3 badge — amber while work is in flight, green when every tracked item completed, and red when at least one item failed (failure always wins so a regression is never hidden behind an in-progress indicator)
+  * Bell icon swaps to a filled variant whenever items are tracked, so state is conveyed by shape as well as color (WCAG 1.4.1)
+  * Badge label rules:
+    * **running** → amber dot, never a count (running is ambient state — the count isn't actionable)
+    * **success** → green count of unseen successes (always homogeneous: success only wins when no running and no unseen errors)
+    * **error** → red count of unseen failures, or a red `!` glyph when an unseen failure coexists with running work
+  * Quiet semantics: success and error are notification events that quiet once the user opens the panel; running stays lit while work is in flight even after the user has peeked. A later transition (e.g. running → error) re-lights the bell
+  * `runningColor`, `successColor`, `errorColor`, and `activeIcon` overrides on `NotificationBellButton` for tuning the stoplight palette and the active-state glyph; the badge text color is auto-paired to the background luminance so overrides stay legible
+  * Opens an anchored dropdown panel on tap
   * Items are grouped into **In progress**, **Failed**, and **Completed** sections with linear progress bars on running rows and status icons on finished rows
   * Per-item tap callback and optional labeled trailing action (e.g. "Open", "Retry") for completed rows
   * Individual dismiss plus "Clear completed" bulk action; running items persist until explicitly completed or failed
