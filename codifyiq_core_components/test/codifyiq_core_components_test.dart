@@ -3,13 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('NotificationCenterController', () {
-    test('start adds a running item and increments unread', () {
+    test('start adds a running item and lights the bell', () {
       final controller = NotificationCenterController();
       controller.start(id: 'a', title: 'Working');
 
       expect(controller.items, hasLength(1));
       expect(controller.running, hasLength(1));
-      expect(controller.unreadCount, 1);
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.running,
+      );
+      expect(controller.homogeneousCount, 1);
     });
 
     test('complete transitions a running item to success', () {
@@ -35,14 +39,82 @@ void main() {
       expect(item.progress, isNull);
     });
 
-    test('markAllSeen clears the unread count', () {
+    test('markAllSeen quiets the bell once completions are acknowledged', () {
+      final controller = NotificationCenterController();
+      controller.start(id: 'a', title: 'Working');
+      controller.complete('a');
+
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.success,
+      );
+      controller.markAllSeen();
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.none,
+      );
+    });
+
+    test('markAllSeen does NOT quiet the bell while items are still running', () {
+      // "Seen" gates notification events (success/error), not current state.
+      // A running task must keep the bell lit even after the user peeked.
+      final controller = NotificationCenterController();
+      controller.start(id: 'a', title: 'Working');
+      controller.markAllSeen();
+
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.running,
+      );
+      expect(controller.homogeneousCount, 1);
+    });
+
+    test('failed items take priority over running in aggregate', () {
       final controller = NotificationCenterController();
       controller.start(id: 'a', title: 'Working');
       controller.start(id: 'b', title: 'Working');
+      controller.fail('b');
 
-      expect(controller.unreadCount, 2);
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.error,
+      );
+      expect(controller.homogeneousCount, isNull);
+    });
+
+    test('running items keep the bell running even when a sibling completes', () {
+      final controller = NotificationCenterController();
+      controller.start(id: 'a', title: 'Working A');
+      controller.start(id: 'b', title: 'Working B');
       controller.markAllSeen();
-      expect(controller.unreadCount, 0);
+      // A finishes; B is still running. Bell must stay running, not flip
+      // to success because A's unseen completion happens to be "newer."
+      controller.complete('a');
+
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.running,
+      );
+      // Mixed: 1 running + 1 unseen success → glyph, not a count.
+      expect(controller.homogeneousCount, isNull);
+    });
+
+    test('a fresh failure re-lights the bell after items were seen', () {
+      final controller = NotificationCenterController();
+      controller.start(id: 'a', title: 'Working');
+      controller.complete('a');
+      controller.markAllSeen();
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.none,
+      );
+
+      controller.start(id: 'b', title: 'Round two');
+      controller.fail('b');
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.error,
+      );
     });
 
     test('clearCompleted removes finished items but keeps running ones', () {
@@ -57,28 +129,32 @@ void main() {
       expect(controller.itemById('b'), isNull);
     });
 
-    test('beginObserving keeps the badge at zero for new updates', () {
+    test('beginObserving keeps the bell quiet for completed work', () {
       final controller = NotificationCenterController();
       controller.beginObserving();
       controller.start(id: 'a', title: 'Working');
       controller.updateProgress('a', progress: 0.5);
       controller.complete('a');
 
-      expect(controller.unreadCount, 0);
+      // Completion happened while observed → marked seen → bell quiet.
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.none,
+      );
       controller.endObserving();
     });
 
-    test(
-      'endObserving releases observer; subsequent updates increment unread',
-      () {
-        final controller = NotificationCenterController();
-        controller.beginObserving();
-        controller.endObserving();
-        controller.start(id: 'a', title: 'Working');
+    test('endObserving releases observer; subsequent updates light bell', () {
+      final controller = NotificationCenterController();
+      controller.beginObserving();
+      controller.endObserving();
+      controller.start(id: 'a', title: 'Working');
 
-        expect(controller.unreadCount, 1);
-      },
-    );
+      expect(
+        controller.aggregateStatus,
+        NotificationBellAggregateStatus.running,
+      );
+    });
 
     test('start preserves createdAt when replacing an existing item', () {
       var now = DateTime(2024, 1, 1, 10);

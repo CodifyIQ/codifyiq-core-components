@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -5,6 +7,21 @@ import 'notification_item.dart';
 
 class _Bus extends ChangeNotifier {
   void fire() => notifyListeners();
+}
+
+/// Aggregate status used by the bell button to pick a color and glyph.
+enum NotificationBellAggregateStatus {
+  /// No tracked items.
+  none,
+
+  /// All tracked items completed successfully.
+  success,
+
+  /// At least one item is running and none have failed.
+  running,
+
+  /// At least one item has failed.
+  error,
 }
 
 /// State container for a notification center.
@@ -64,8 +81,81 @@ class NotificationCenterController extends ChangeNotifier {
   List<NotificationItem> get failed =>
       _items.where((i) => i.status == NotificationItemStatus.error).toList();
 
-  /// Number of items the user has not yet seen — drives the bell badge.
-  int get unreadCount => _items.where((i) => !i.seen).length;
+  /// Combined bell status + homogeneous count, computed in a single pass.
+  ///
+  /// **Priority** (highest to lowest): [NotificationBellAggregateStatus.error]
+  /// > [NotificationBellAggregateStatus.running]
+  /// > [NotificationBellAggregateStatus.success]
+  /// > [NotificationBellAggregateStatus.none].
+  ///
+  /// Running counts whenever **any** item is in flight (seen or not),
+  /// because "running" is current state — viewing the panel doesn't make
+  /// an in-progress task disappear from the bell. Error and success are
+  /// notification events and only count while **unseen**, so the bell
+  /// quiets after the user opens the panel and a later transition (e.g.
+  /// running → error) will re-light it.
+  ///
+  /// A single unseen failure beats any running items — a regression is
+  /// never hidden behind an in-progress indicator.
+  ///
+  /// `count` is the number of items contributing to `status` when every
+  /// *contributing* item shares that status, otherwise `null`. A
+  /// contributing item is one the bell is currently reflecting: any
+  /// running item, any unseen failure, or any unseen success. Seen
+  /// completed items don't affect the bell.
+  ({NotificationBellAggregateStatus status, int? count}) get bellState {
+    var hasRunning = false;
+    var runningCount = 0;
+    var unseenSuccessCount = 0;
+    var unseenErrorCount = 0;
+    for (final i in _items) {
+      switch (i.status) {
+        case NotificationItemStatus.error:
+          if (!i.seen) unseenErrorCount++;
+        case NotificationItemStatus.running:
+          hasRunning = true;
+          runningCount++;
+        case NotificationItemStatus.success:
+          if (!i.seen) unseenSuccessCount++;
+      }
+    }
+    if (unseenErrorCount > 0) {
+      // Errors win. Count is only meaningful when nothing else is
+      // contributing — otherwise running items would be silently
+      // excluded from the badge number.
+      final homogeneous = !hasRunning && unseenSuccessCount == 0;
+      return (
+        status: NotificationBellAggregateStatus.error,
+        count: homogeneous ? unseenErrorCount : null,
+      );
+    }
+    if (hasRunning) {
+      // Running is ambient state; count is suppressed at the bell layer
+      // anyway, but report it for callers that want it.
+      final homogeneous = unseenSuccessCount == 0;
+      return (
+        status: NotificationBellAggregateStatus.running,
+        count: homogeneous ? runningCount : null,
+      );
+    }
+    if (unseenSuccessCount > 0) {
+      // Success only wins when no running and no unseen errors, so by
+      // construction every contributor is a success.
+      return (
+        status: NotificationBellAggregateStatus.success,
+        count: unseenSuccessCount,
+      );
+    }
+    return (status: NotificationBellAggregateStatus.none, count: null);
+  }
+
+  /// Aggregate bell status. See [bellState] for the full semantics.
+  NotificationBellAggregateStatus get aggregateStatus => bellState.status;
+
+  /// Count of items contributing to the current [aggregateStatus] when
+  /// every contributing item shares that status, else `null`. See
+  /// [bellState] for details.
+  int? get homogeneousCount => bellState.count;
 
   /// Whether any items are currently running.
   bool get hasRunning => _items.any((i) => i.isRunning);
@@ -77,7 +167,10 @@ class NotificationCenterController extends ChangeNotifier {
   /// notifications via [beginObserving].
   ///
   /// While observed, items added or updated are marked seen immediately so
-  /// the bell badge stays at zero — the user is already looking at them.
+  /// completion events arriving while the user is looking at the panel
+  /// are pre-acknowledged. Note that **running items still light the
+  /// bell** even while observed — running is current state, not a
+  /// notification event.
   bool get isObserved => _observerCount > 0;
 
   /// Fires only when items are added, removed, reordered, or transition
@@ -107,17 +200,26 @@ class NotificationCenterController extends ChangeNotifier {
 
   /// Register interest in observing notifications.
   ///
-  /// Increments an internal observer count. While the count is non-zero, any
-  /// new or updated item is automatically marked seen, so the bell badge
-  /// remains at zero while the user is actively viewing the panel. Calls
-  /// [markAllSeen] eagerly so existing unread items also clear.
+  /// Increments an internal observer count. While the count is non-zero,
+  /// any new or updated item is automatically marked seen, so completion
+  /// events arriving while the user is viewing the panel don't re-light
+  /// the bell. Running items continue to light the bell — see
+  /// [isObserved]. Eagerly marks existing items seen so completion
+  /// notifications already on the bell quiet as well.
   ///
-  /// The default [NotificationCenterPanel] manages this automatically through
-  /// its widget lifecycle; consumers embedding the panel themselves should
-  /// pair every [beginObserving] with a matching [endObserving].
+  /// Safe to call from `initState` / `build`: the resulting
+  /// `notifyListeners` is deferred to a microtask so listeners are not
+  /// torn down mid-build.
+  ///
+  /// The default [NotificationCenterPanel] manages this automatically
+  /// through its widget lifecycle; consumers embedding the panel
+  /// themselves should pair every [beginObserving] with a matching
+  /// [endObserving].
   void beginObserving() {
     _observerCount++;
-    markAllSeen();
+    // Defer so callers can invoke from build / initState without
+    // triggering a notifyListeners during the build phase.
+    scheduleMicrotask(markAllSeen);
   }
 
   /// Release a previous [beginObserving] call.
@@ -314,7 +416,11 @@ class NotificationCenterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Marks every item as seen, zeroing the unread badge.
+  /// Marks every item as seen.
+  ///
+  /// Quiets the bell for completion events (success / error). Running
+  /// items remain visible on the bell — running is current state, not a
+  /// notification event, so "seeing" it doesn't make it go away.
   void markAllSeen() {
     var changed = false;
     for (var i = 0; i < _items.length; i++) {

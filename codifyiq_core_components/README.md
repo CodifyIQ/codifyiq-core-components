@@ -76,10 +76,10 @@ The `ErrorRetryWidget` provides a standardized way to display errors that can be
 A Play Store-style notification center for tracking long-running, user-initiated tasks (uploads,
 downloads, multi-step background work) without blocking the UI. The widget set includes:
 
-*   `NotificationBellButton` — an `AppBar` action with a Material 3 unread badge. Opens an anchored
-    dropdown panel on wide viewports and pushes a full-screen `NotificationCenterPage` (with back
-    button) on narrow/mobile viewports. The breakpoint, panel size, drop offset, and trailing edge
-    inset are all configurable.
+*   `NotificationBellButton` — an `AppBar` action with a stoplight-coded Material 3 badge (see
+    "Bell badge rules" below). Opens an anchored dropdown panel on wide viewports and pushes a
+    full-screen `NotificationCenterPage` (with back button) on narrow/mobile viewports. The
+    breakpoint, panel size, drop offset, and trailing edge inset are all configurable.
 *   `NotificationCenterController` — a `ChangeNotifier` exposing `start` / `updateProgress` /
     `complete` / `fail` / `dismiss` / `clearCompleted` / `clearAll` / `markAllSeen`. Consumers
     drive the controller from their own task layer (HTTP, isolates, platform workers) — the widget
@@ -106,6 +106,33 @@ controller.complete(
 // In your AppBar:
 AppBar(actions: [NotificationBellButton(controller: controller)]);
 ```
+
+#### Bell badge rules
+
+The bell is a stoplight, not a count. Color and label are derived from the controller's
+aggregate state, with the bell icon swapping to a filled variant whenever items are tracked
+(so state is conveyed by shape as well as color — WCAG 1.4.1).
+
+**Status priority** (highest to lowest): error → running → success → none. A single unseen
+failure beats any in-flight work, so a regression is never hidden behind an in-progress
+indicator.
+
+**Badge label**:
+
+| State   | Color | Label                                                                                                |
+|---------|-------|------------------------------------------------------------------------------------------------------|
+| running | amber | dot — never a count (running is ambient state, the count isn't actionable)                           |
+| success | green | count of unseen successes (always homogeneous: success only wins when no running and no unseen errors) |
+| error   | red   | count of unseen failures, **or** a `!` glyph when an unseen failure coexists with running work       |
+
+**Quiet semantics**: success and error are notification *events* gated by `seen` — opening the
+panel marks items seen and the bell quiets if nothing else is running. Running is current
+*state*, not gated by `seen`, so the bell stays lit (amber dot) while work is in flight even
+after the user has peeked. A later transition (e.g. running → error) re-lights the bell.
+
+Defaults: amber `Colors.amber.shade700`, green `Colors.green.shade600`, red
+`colorScheme.error`. Override per-instance via `runningColor`, `successColor`, `errorColor`,
+and swap the active-state icon via `activeIcon`.
 
 ### `SocialSignInScreen`
 

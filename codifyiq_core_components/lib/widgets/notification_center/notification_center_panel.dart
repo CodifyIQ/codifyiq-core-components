@@ -342,13 +342,15 @@ class _RowContent extends StatelessWidget {
   Widget _leadingFor(ThemeData theme) {
     switch (item.status) {
       case NotificationItemStatus.running:
-        return SizedBox(
+        // Leading spinner is intentionally indeterminate — at 20px the
+        // progress arc is not legible, and its job here is just to
+        // signal "in progress." The determinate value lives in the
+        // LinearProgressIndicator below the row text, where the bar is
+        // wide enough to read.
+        return const SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(
-            value: item.progress,
-            strokeWidth: 2.5,
-          ),
+          child: CircularProgressIndicator(strokeWidth: 2.5),
         );
       case NotificationItemStatus.success:
         return Icon(
