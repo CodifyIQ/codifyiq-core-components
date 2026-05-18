@@ -18,6 +18,18 @@
   * Optional `NotificationCenterScope` `InheritedNotifier` exposes the controller ambiently so any descendant widget can post updates without prop-drilling
   * UI-only: consumers wire the controller to their own task layer (HTTP, isolates, platform background workers, etc.)
 * `BrightnessButton` now renders its dropdown as a Material 3 surface (rounded corners, elevation, surface tint) and accepts `menuAlignmentOffset` / `menuScreenEdgeInset` to control drop distance and the gap from the trailing viewport edge — matching the new `NotificationBellButton` styling
+* New widget: `PdfViewerWidget` — a reusable PDF viewer backed by `pdfrx`
+  * Render a PDF from any `PdfSource`: network `Uri`, local file path, or in-memory `Uint8List`
+  * Pinch-to-zoom on mobile; Ctrl/Cmd + scroll-wheel and on-screen +/− buttons on web
+  * Configurable `minScale` / `maxScale` zoom bounds — the supplied `minScale` is now honored as a literal lower bound (previously could be overridden by an internal fit-page calculation, which also produced a transient assertion on wide viewports during the first frame)
+  * Optional in-document text search with debounced input, highlighted matches, next/previous navigation, and a match counter — toggling `enableSearch` off clears any active query and removes in-page match highlights
+  * `PdfSource.uri` now accepts optional HTTP `headers`, forwarded to the underlying request — load PDFs from endpoints that require authentication/authorization (e.g. a JWT bearer token)
+  * Swapping the `source` at runtime now resets viewer state (page indicator, search input, match highlights) and rebinds the text searcher to the new document instead of carrying the previous document's state forward
+  * `PdfSource` variants (`PdfUriSource`, `PdfFileSource`, `PdfBytesSource`) now implement value equality, so two sources describing the same document compare equal
+  * Optional page indicator overlay
+  * Page change and document-loaded callbacks, plus a customizable error builder
+* Added `pdfrx ^2.3.3` dependency — required to render PDF documents
+* **Breaking:** minimum SDK requirements raised to Dart `^3.10.0` and Flutter `>=3.41.0` to satisfy `pdfrx`
 * New widget: `SocialSignInScreen` — customizable sign-in screen with logo, tagline, social buttons, error display, and footer
   * Optional reviewer login easter egg for app store submissions — tap the logo to reveal an email/password form for reviewers
   * Built-in processing state replaces sign-in buttons with a progress indicator during authentication, preventing duplicate taps

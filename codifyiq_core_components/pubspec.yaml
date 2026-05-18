@@ -15,8 +15,8 @@ flutter:
   uses-material-design: true
 
 environment:
-  sdk: ^3.9.2
-  flutter: ">=3.27.0"
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:
@@ -24,6 +24,7 @@ dependencies:
   gpt_markdown: ^1.1.5
   adaptive_theme: ^3.7.0
   shimmer: ^3.0.0
+  pdfrx: ^2.3.3
 
 dev_dependencies:
   flutter_test:
