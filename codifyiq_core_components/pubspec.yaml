@@ -25,6 +25,7 @@ dependencies:
   adaptive_theme: ^3.7.0
   shimmer: ^3.0.0
   pdfrx: ^2.3.3
+  photo_view: ^0.15.0
 
 dev_dependencies:
   flutter_test:
