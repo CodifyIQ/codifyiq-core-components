@@ -7,6 +7,7 @@ import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
+import 'image_viewer_widget_example.dart';
 
 class WidgetCatalog extends StatelessWidget {
   const WidgetCatalog({super.key});
@@ -18,6 +19,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Generic social sign-in screen layout with customizable branding',
       'route': SocialSignInScreenExample(),
+    },
+    {
+      'name': 'Image Viewer',
+      'description':
+          'Full-screen image viewer with swipe, pinch-zoom, and actions',
+      'route': ImageViewerWidgetExample(),
     },
     {
       'name': 'Terms and Conditions',

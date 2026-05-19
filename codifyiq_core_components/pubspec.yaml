@@ -29,6 +29,7 @@ dependencies:
   # which the AI chat message mapping depends on.
   flutter_chat_ui: ^1.6.15
   flutter_chat_types: ^3.6.2
+  photo_view: ^0.15.0
 
 dev_dependencies:
   flutter_test:
