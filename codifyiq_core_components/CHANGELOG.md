@@ -1,6 +1,19 @@
 # Changelog
 
 ## 0.7.0
+* New widget: `AiChatScreen` — an embeddable AI chat experience built on top of the Flyer Chat packages (`flutter_chat_ui` + `flutter_chat_types`) and re-skinned to the Material 3 theme
+  * Scrollable chat timeline with text messaging, multiline input, auto-scroll to the latest message, and a send button that stays visible but grayed out while the input is empty or a reply is in flight
+  * Sending is blocked while the assistant is responding — the in-flight request is left to finish and the user's draft text is kept rather than cleared
+  * AI replies render as Markdown (headings, bold, lists, code blocks, links) via `gpt_markdown`; user messages render as plain text
+  * On wide (desktop) viewports the conversation is centered in a max-width column with dimmed side gutters — tune or disable it with the `maxContentWidth` parameter
+  * `AiChatController` manages the message timeline and the backend round-trip — supply your own request logic through its `responder` callback (the package ships no networking layer)
+  * Shows an `AiProgressIndicator` while awaiting a reply and an error bubble when a request fails
+  * Automatically stamps each message's `seenAt` timestamp the first time it scrolls into view
+  * `onSendMessage` and `onMessageTap` callbacks — `onMessageTap` is the integration point for future PDF/image viewers
+  * `CodifyChatMessage` model supports text, image, and pdf content plus sender and `seenAt`
+  * Image messages render inline through Flyer Chat — set `CodifyChatMessage.sourceUri` to a network or local image and it appears in the timeline with tap-to-zoom; set `enableImageGallery` to `false` to route image taps to `onMessageTap` for a custom viewer instead
+  * PDF messages render as tappable Flyer Chat file rows (document icon, name, and `fileSizeBytes` as the subtitle) — handle `onMessageTap` to open your own PDF viewer; the chat widget itself pulls in no PDF rendering library
+  * A `+` attachment button opens an "Add image / Add PDF" menu — wire `onAttachImage` / `onAttachPdf` to your own file picker; the button is hidden when neither is provided
 * New widget set: `NotificationBellButton`, `NotificationCenterPanel`, `NotificationCenterPage`, and `NotificationCenterController` — a Play Store-style notification center for tracking long-running, user-initiated tasks
   * App-bar bell with a stoplight-coded Material 3 badge — amber while work is in flight, green when every tracked item completed, and red when at least one item failed (failure always wins so a regression is never hidden behind an in-progress indicator)
   * Bell icon swaps to a filled variant whenever items are tracked, so state is conveyed by shape as well as color (WCAG 1.4.1)
