@@ -1,6 +1,17 @@
 # Changelog
 
 ## 0.7.0
+* New widget: `ChatHistorySidebar` — a searchable, scrollable sidebar listing chat conversations
+  * Displays a flat list of `ChatHistoryItem`s sorted by most recent activity (`updatedAt` descending)
+  * Live search with configurable debounce (default 300 ms) filters the list by title, case-insensitively; clearing the input immediately restores the full list
+  * Three states: shimmer skeleton placeholders while loading, a "No conversations yet" / "No conversations match" empty state, and an error state with an optional Retry button
+  * Active conversation is highlighted with a `SecondaryContainer` background and a left-edge indicator bar; the active row is automatically scrolled into view when it changes
+  * Hover highlight on desktop via `MouseRegion`; Enter key selects the focused row via a `Focus` / `onKeyEvent` handler
+  * Collapsible mode (`isCollapsed`) renders a 56 dp icon strip with an expand button — wire `onToggleCollapse` and wrap in `AnimatedSize` for a smooth transition
+  * `ListView.builder` with `ValueKey` per item for efficient, stable rendering of large lists
+  * `showTimestamps` toggle displays relative time labels ("just now", "3h ago", "Jan 5") below each title
+  * Configurable `width`, `headerTitle`, `searchDebounceMs`, and `emptyPlaceholder`
+  * Ships no networking layer — consumers provide `chats`, `activeChatId`, and `onChatSelected`; the widget owns search state internally
 * New widget: `AiChatScreen` — an embeddable AI chat experience built on top of the Flyer Chat packages (`flutter_chat_ui` + `flutter_chat_types`) and re-skinned to the Material 3 theme
   * Scrollable chat timeline with text messaging, multiline input, auto-scroll to the latest message, and a send button that stays visible but grayed out while the input is empty or a reply is in flight
   * Sending is blocked while the assistant is responding — the in-flight request is left to finish and the user's draft text is kept rather than cleared

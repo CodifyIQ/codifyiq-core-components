@@ -6,6 +6,8 @@ export 'widgets/ai_chat/ai_chat_screen.dart';
 export 'widgets/ai_chat/codify_chat_message.dart';
 export 'widgets/ai_progress_indicator.dart';
 export 'widgets/brightness_button.dart';
+export 'widgets/chat_history_sidebar/chat_history_item.dart';
+export 'widgets/chat_history_sidebar/chat_history_sidebar.dart';
 export 'widgets/error_retry_widget.dart';
 export 'widgets/notification_center/notification_bell_button.dart';
 export 'widgets/notification_center/notification_center_controller.dart';
