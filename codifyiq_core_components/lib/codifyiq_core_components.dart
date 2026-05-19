@@ -1,6 +1,9 @@
 /// CodifyIQ Core Components — reusable UI widgets for Flutter applications.
 library;
 
+export 'widgets/ai_chat/ai_chat_controller.dart';
+export 'widgets/ai_chat/ai_chat_screen.dart';
+export 'widgets/ai_chat/codify_chat_message.dart';
 export 'widgets/ai_progress_indicator.dart';
 export 'widgets/brightness_button.dart';
 export 'widgets/error_retry_widget.dart';

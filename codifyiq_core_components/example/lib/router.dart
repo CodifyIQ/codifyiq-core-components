@@ -3,6 +3,7 @@ import 'package:codifyiq_core_components/widgets/brightness_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'ai_chat_screen_example.dart';
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
 import 'notification_center_example.dart';
@@ -75,6 +76,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/pdf-viewer",
         builder: (BuildContext context, GoRouterState state) {
           return PdfViewerWidgetExample();
+        },
+      ),
+      GoRoute(
+        path: "/ai-chat",
+        builder: (BuildContext context, GoRouterState state) {
+          return AiChatScreenExample();
         },
       ),
       GoRoute(

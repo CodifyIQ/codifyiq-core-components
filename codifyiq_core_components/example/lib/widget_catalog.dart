@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ai_chat_screen_example.dart';
 import 'ai_progress_indicator_example.dart';
 import 'error_retry_widget_example.dart';
 import 'notification_center_example.dart';
@@ -51,6 +52,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'PDF viewer with zoom, page indicator, and optional text search',
       'route': PdfViewerWidgetExample(),
+    },
+    {
+      'name': 'AI Chat',
+      'description':
+          'Wraps Flyer Chat with CodifyIQ styling for AI conversations',
+      'route': AiChatScreenExample(),
     },
   ];
 

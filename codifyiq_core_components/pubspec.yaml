@@ -25,6 +25,10 @@ dependencies:
   adaptive_theme: ^3.7.0
   shimmer: ^3.0.0
   pdfrx: ^2.3.3
+  # Pinned to the flutter_chat_ui v1 line: v2 dropped flutter_chat_types,
+  # which the AI chat message mapping depends on.
+  flutter_chat_ui: ^1.6.15
+  flutter_chat_types: ^3.6.2
   photo_view: ^0.15.0
 
 dev_dependencies:
