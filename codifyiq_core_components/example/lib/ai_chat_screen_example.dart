@@ -95,24 +95,84 @@ class _AiChatScreenExampleState extends State<AiChatScreenExample> {
   }
 
   void _handleMessageTap(CodifyChatMessage message) {
-    // Only PDF taps have a host action here: the chat widget never imports a
-    // PDF renderer, so the host wires onMessageTap to its own viewer — the
-    // package's PdfViewerWidget. Image taps are handled by Flyer's built-in
-    // gallery, and text/error taps have no natural action, so they are
-    // intentionally ignored.
-    if (message.kind == CodifyChatMessageKind.pdf &&
-        message.sourceUri != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            appBar: AppBar(
-              title: Text(message.text.isEmpty ? 'PDF' : message.text),
+    // The chat widget bundles no PDF or image renderer; the host wires
+    // onMessageTap to its own viewers. PDFs open the package's
+    // PdfViewerWidget; images open the package's ImageViewerWidget with every
+    // image in the conversation loaded so the user can swipe between them.
+    // Text and error taps have no natural action and are ignored.
+    final source = message.sourceUri;
+    if (source == null) return;
+
+    switch (message.kind) {
+      case CodifyChatMessageKind.pdf:
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: Text(message.text.isEmpty ? 'PDF' : message.text),
+              ),
+              body: PdfViewerWidget(source: PdfSource.uri(source)),
             ),
-            body: PdfViewerWidget(source: PdfSource.uri(message.sourceUri!)),
           ),
-        ),
-      );
+        );
+      case CodifyChatMessageKind.image:
+        _openImageViewer(message.id);
+      case CodifyChatMessageKind.text:
+      case CodifyChatMessageKind.error:
+        break;
     }
+  }
+
+  void _openImageViewer(String tappedId) {
+    // Build the items from every image message in the conversation so the
+    // viewer can swipe between them.
+    final images = _controller.messages
+        .where(
+          (m) => m.kind == CodifyChatMessageKind.image && m.sourceUri != null,
+        )
+        .toList(growable: false);
+    final initialIndex = images.indexWhere((m) => m.id == tappedId);
+    if (initialIndex == -1) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (dialogContext) => ImageViewerWidget(
+          items: [
+            for (final m in images)
+              ImageViewerItem.network(
+                m.sourceUri!.toString(),
+                title: m.text.isEmpty ? null : m.text,
+              ),
+          ],
+          initialIndex: initialIndex,
+          // Wiring these callbacks is what makes the viewer's download icon
+          // and overflow (share / delete) menu appear — they hide individually
+          // when their callback is null. Real apps plug in their own logic;
+          // the demo just surfaces SnackBar feedback.
+          onDownload: (item, _) =>
+              _showViewerSnack(dialogContext, 'Download', item),
+          // onShare takes an extra Rect? for anchoring iPad share-sheets.
+          onShare: (item, _, _) =>
+              _showViewerSnack(dialogContext, 'Share', item),
+          onDelete: (item, _) =>
+              _showViewerSnack(dialogContext, 'Delete', item),
+        ),
+      ),
+    );
+  }
+
+  void _showViewerSnack(
+    BuildContext context,
+    String action,
+    ImageViewerItem item,
+  ) {
+    final title = item.title;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('$action${title == null ? '' : ': $title'}')),
+      );
   }
 
   @override
