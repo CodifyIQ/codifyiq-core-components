@@ -1,0 +1,34 @@
+name: flyer_chat_video_message
+version: 1.0.0
+description: >
+  Video message package for Flutter chat apps, complementing flutter_chat_ui.
+  Renders VideoMessage as a thumbnail with a play overlay, upload-progress
+  states, and delivery status. Does not implement video playback, fullscreen
+  viewing, or media gallery navigation.
+homepage: https://flyer.chat
+repository: https://github.com/flyerhq/flutter_chat_ui
+
+environment:
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: ">=3.32.0"
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_chat_core: ^2.9.0
+  intl: ">=0.19.0 <1.0.0"
+  provider: ^6.1.5+1
+  video_thumbnail: ">=0.5.3 <1.0.0"
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

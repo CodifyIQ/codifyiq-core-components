@@ -9,6 +9,7 @@ import 'pdf_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 import 'user_avatar_example.dart';
+import 'video_message_example.dart';
 
 class WidgetCatalog extends StatelessWidget {
   const WidgetCatalog({super.key});
@@ -29,8 +30,7 @@ class WidgetCatalog extends StatelessWidget {
     },
     {
       'name': 'User Avatar',
-      'description':
-          'Circular avatar with photo, initials, and icon fallbacks',
+      'description': 'Circular avatar with photo, initials, and icon fallbacks',
       'route': UserAvatarExample(),
     },
     {
@@ -65,6 +65,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Chat-style audio message player with play/pause, progress, and duration',
       'route': AudioMessageExample(),
+    },
+    {
+      'name': 'Video Message',
+      'description':
+          'Chat bubble renderer for video messages with thumbnail and play overlay',
+      'route': VideoMessageExample(),
     },
   ];
 

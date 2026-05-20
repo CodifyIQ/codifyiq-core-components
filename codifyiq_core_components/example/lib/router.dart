@@ -11,6 +11,7 @@ import 'pdf_viewer_widget_example.dart';
 import 'image_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
+import 'video_message_example.dart';
 import 'widget_catalog.dart';
 
 /// Path for the home page.
@@ -88,6 +89,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/audio-message",
         builder: (BuildContext context, GoRouterState state) {
           return const AudioMessageExample();
+        },
+      ),
+      GoRoute(
+        path: "/video-message",
+        builder: (BuildContext context, GoRouterState state) {
+          return VideoMessageExample();
         },
       ),
     ],
