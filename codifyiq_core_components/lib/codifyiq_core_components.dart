@@ -15,3 +15,6 @@ export 'widgets/image_viewer_widget.dart';
 export 'widgets/social_sign_in_screen.dart';
 export 'widgets/terms_and_conditions_widget.dart';
 export 'widgets/user_avatar.dart';
+export 'widgets/audio_message/audio_player_backend.dart';
+export 'widgets/audio_message/audio_message_controller.dart';
+export 'widgets/audio_message/audio_message.dart';

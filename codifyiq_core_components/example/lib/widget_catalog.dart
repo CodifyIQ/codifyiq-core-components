@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'ai_progress_indicator_example.dart';
+import 'audio_message_example.dart';
 import 'error_retry_widget_example.dart';
+import 'image_viewer_widget_example.dart';
 import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
-import 'image_viewer_widget_example.dart';
 import 'user_avatar_example.dart';
 
 class WidgetCatalog extends StatelessWidget {
@@ -58,6 +59,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'PDF viewer with zoom, page indicator, and optional text search',
       'route': PdfViewerWidgetExample(),
+    },
+    {
+      'name': 'Audio Message',
+      'description':
+          'Chat-style audio message player with play/pause, progress, and duration',
+      'route': AudioMessageExample(),
     },
   ];
 

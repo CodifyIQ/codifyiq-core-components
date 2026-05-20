@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
+import 'audio_message_example.dart';
 import 'error_retry_widget_example.dart';
 import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
@@ -81,6 +82,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/image-viewer",
         builder: (BuildContext context, GoRouterState state) {
           return ImageViewerWidgetExample();
+        },
+      ),
+      GoRoute(
+        path: "/audio-message",
+        builder: (BuildContext context, GoRouterState state) {
+          return const AudioMessageExample();
         },
       ),
     ],
