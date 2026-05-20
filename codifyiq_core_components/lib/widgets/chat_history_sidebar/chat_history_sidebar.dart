@@ -190,9 +190,11 @@ class ChatHistorySidebar extends StatefulWidget {
   /// When `null`, no new-chat button is shown.
   final VoidCallback? onNewChat;
 
-  /// Widget shown when the filtered list is empty.
+  /// Widget shown when there are no conversations at all.
   ///
-  /// Defaults to an icon and "No conversations yet" message.
+  /// Defaults to an icon and "No conversations yet" message. Not used when a
+  /// search query returns no matches — that case always shows the built-in
+  /// "No conversations match" state.
   final Widget? emptyPlaceholder;
 
   /// Title text displayed at the top of the expanded sidebar.
@@ -213,7 +215,6 @@ class _ChatHistorySidebarState extends State<ChatHistorySidebar> {
   final GlobalKey _activeItemKey = GlobalKey();
 
   Timer? _debounce;
-  Timer? _timestampRefresh;
   String _query = '';
 
   @override
@@ -222,9 +223,6 @@ class _ChatHistorySidebarState extends State<ChatHistorySidebar> {
     _searchController = TextEditingController();
     _sortedChats = _sort(widget.chats);
     _filteredChats = _sortedChats;
-    _timestampRefresh = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
@@ -255,7 +253,6 @@ class _ChatHistorySidebarState extends State<ChatHistorySidebar> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _timestampRefresh?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -413,7 +410,8 @@ class _ChatHistorySidebarState extends State<ChatHistorySidebar> {
       );
     }
     if (_filteredChats.isEmpty) {
-      return widget.emptyPlaceholder ?? _EmptyState(hasQuery: _query.isNotEmpty);
+      if (_query.isNotEmpty) return const _EmptyState(hasQuery: true);
+      return widget.emptyPlaceholder ?? const _EmptyState(hasQuery: false);
     }
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
