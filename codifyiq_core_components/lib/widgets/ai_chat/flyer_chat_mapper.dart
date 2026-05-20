@@ -1,110 +1,98 @@
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import 'package:flutter_chat_core/flutter_chat_core.dart';
 
 import 'codify_chat_message.dart';
 
-/// Maps [CodifyChatMessage]s to Flyer Chat's `flutter_chat_types` model.
+/// Maps [CodifyChatMessage]s onto the Flyer Chat (`flutter_chat_core`)
+/// [Message] model.
 ///
 /// This is the only file in the `ai_chat` component that depends on
-/// `flutter_chat_types`, keeping the wrapper model and the Flyer types
-/// decoupled. It is an internal implementation detail and is not exported
-/// from the package.
+/// `flutter_chat_core`, keeping the CodifyIQ wrapper model decoupled from
+/// Flyer. It is an internal implementation detail and is not exported from the
+/// package.
 
-/// Stable Flyer author for messages sent by the local user.
-const types.User userAuthor = types.User(
-  id: 'codify-chat-user',
-  firstName: 'You',
-);
+/// Stable Flyer user id for messages sent by the local user.
+const String userAuthorId = 'codify-chat-user';
 
-/// Stable Flyer author for messages produced by the AI.
-const types.User aiAuthor = types.User(
-  id: 'codify-chat-ai',
-  firstName: 'Assistant',
-);
+/// Stable Flyer user id for messages produced by the AI.
+const String aiAuthorId = 'codify-chat-ai';
 
-types.User _authorFor(CodifyChatSender sender) =>
-    sender == CodifyChatSender.user ? userAuthor : aiAuthor;
+const Map<String, User> _users = <String, User>{
+  userAuthorId: User(id: userAuthorId, name: 'You'),
+  aiAuthorId: User(id: aiAuthorId, name: 'Assistant'),
+};
 
-/// Converts a single [CodifyChatMessage] to a Flyer [types.Message].
+/// Resolves the [User] for a Flyer message author id.
 ///
-/// - Text messages become [types.TextMessage].
-/// - Image messages with a [CodifyChatMessage.sourceUri] become
-///   [types.ImageMessage] so Flyer renders the picture inline (and provides
-///   tap-to-zoom). Images render from the network or the local file system —
-///   no heavy native package is involved.
-/// - PDF messages with a [CodifyChatMessage.sourceUri] become
-///   [types.FileMessage] so Flyer renders a tappable file row; the tap is
-///   forwarded through `AiChatScreen.onMessageTap` for the host to open its
-///   PDF viewer. No PDF rendering library is pulled into the chat widget.
-/// - Error messages and source-less image/pdf messages become
-///   [types.CustomMessage] so `AiChatScreen` renders them through its
-///   `customMessageBuilder` (placeholder / error bubbles).
-types.Message toFlyerMessage(CodifyChatMessage message) {
-  final author = _authorFor(message.sender);
-  final createdAt = message.createdAt.millisecondsSinceEpoch;
+/// Wired into `Chat.resolveUser`. Returns `null` for unknown ids.
+Future<User?> resolveCodifyChatUser(UserID id) async => _users[id];
+
+String _authorIdFor(CodifyChatSender sender) =>
+    sender == CodifyChatSender.user ? userAuthorId : aiAuthorId;
+
+/// Converts a [CodifyChatMessage] to a Flyer [Message].
+///
+/// - Text → [TextMessage] (rendered with Markdown by `FlyerChatTextMessage`).
+/// - Image with a [CodifyChatMessage.sourceUri] → [ImageMessage], rendered
+///   inline by `FlyerChatImageMessage`.
+/// - PDF with a [CodifyChatMessage.sourceUri] → [FileMessage], rendered as a
+///   tappable file row by `FlyerChatFileMessage`.
+/// - Error messages and source-less image/pdf messages → [CustomMessage], so
+///   `AiChatScreen` renders them through its custom builder (placeholder /
+///   error bubbles). No PDF/image rendering library is pulled in for those.
+Message toFlyerMessage(CodifyChatMessage message) {
+  final authorId = _authorIdFor(message.sender);
 
   switch (message.kind) {
     case CodifyChatMessageKind.text:
-      return types.TextMessage(
-        author: author,
+      return Message.text(
         id: message.id,
+        authorId: authorId,
         text: message.text,
-        createdAt: createdAt,
-        showStatus: message.isFromUser,
-        status: message.isSeen ? types.Status.seen : types.Status.sent,
+        createdAt: message.createdAt,
+        seenAt: message.seenAt,
       );
     case CodifyChatMessageKind.image:
       final source = message.sourceUri;
       if (source != null) {
-        return types.ImageMessage(
-          author: author,
+        return Message.image(
           id: message.id,
-          createdAt: createdAt,
-          uri: source.toString(),
-          // Flyer shows [name] only in its small file-style fallback layout;
-          // [size] is unknown for a remote image and is left at 0.
-          name: message.text.isEmpty ? 'image' : message.text,
-          size: 0,
-          showStatus: message.isFromUser,
-          status: message.isSeen ? types.Status.seen : types.Status.sent,
+          authorId: authorId,
+          source: source.toString(),
+          text: message.text.isEmpty ? null : message.text,
+          createdAt: message.createdAt,
+          seenAt: message.seenAt,
         );
       }
-      // No source yet — fall back to a placeholder bubble.
-      return _placeholderMessage(message, author, createdAt);
+      return _customMessage(message, authorId);
     case CodifyChatMessageKind.pdf:
       final source = message.sourceUri;
       if (source != null) {
-        return types.FileMessage(
-          author: author,
+        return Message.file(
           id: message.id,
-          createdAt: createdAt,
-          uri: source.toString(),
+          authorId: authorId,
+          source: source.toString(),
           name: message.text.isEmpty ? 'document.pdf' : message.text,
-          size: message.fileSizeBytes,
+          // 0 means "unknown" — passing null hides the size line on the
+          // Flyer file row rather than rendering a meaningless "0 B".
+          size: message.fileSizeBytes == 0 ? null : message.fileSizeBytes,
           mimeType: 'application/pdf',
-          showStatus: message.isFromUser,
-          status: message.isSeen ? types.Status.seen : types.Status.sent,
+          createdAt: message.createdAt,
+          seenAt: message.seenAt,
         );
       }
-      // No source yet — fall back to a placeholder bubble.
-      return _placeholderMessage(message, author, createdAt);
+      return _customMessage(message, authorId);
     case CodifyChatMessageKind.error:
-      return _placeholderMessage(message, author, createdAt);
+      return _customMessage(message, authorId);
   }
 }
 
-/// Builds the [types.CustomMessage] that drives a placeholder / error bubble.
+/// Builds the [CustomMessage] that drives a placeholder / error bubble.
 ///
 /// No metadata is attached: `AiChatScreen` resolves the bubble's content kind
 /// straight from the [AiChatController] by message id.
-types.CustomMessage _placeholderMessage(
-  CodifyChatMessage message,
-  types.User author,
-  int createdAt,
-) => types.CustomMessage(author: author, id: message.id, createdAt: createdAt);
-
-/// Converts a timeline (oldest first) into the newest-first list that Flyer
-/// Chat's `Chat` widget expects.
-List<types.Message> toFlyerMessages(List<CodifyChatMessage> messages) =>
-    <types.Message>[
-      for (final message in messages.reversed) toFlyerMessage(message),
-    ];
+Message _customMessage(CodifyChatMessage message, String authorId) =>
+    Message.custom(
+      id: message.id,
+      authorId: authorId,
+      createdAt: message.createdAt,
+    );

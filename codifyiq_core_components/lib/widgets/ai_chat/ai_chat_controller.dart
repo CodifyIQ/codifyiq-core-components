@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_chat_core/flutter_chat_core.dart';
 
 import 'codify_chat_message.dart';
+import 'flyer_chat_mapper.dart';
 
 /// Performs the backend round-trip for a chat turn.
 ///
 /// Given the user's [prompt], returns the AI's reply as a [CodifyChatMessage]
 /// — typically [CodifyChatMessage.ai] for text, but may also be a
-/// [CodifyChatMessage.pdf] or [CodifyChatMessage.image] placeholder. Throwing
-/// from the responder makes [AiChatController] append an error bubble.
+/// [CodifyChatMessage.pdf] or [CodifyChatMessage.image]. Throwing from the
+/// responder makes [AiChatController] append an error bubble.
 ///
 /// The package ships no networking layer: consumers wire the responder to
 /// their own API client, SDK, or mock.
@@ -16,8 +18,9 @@ typedef AiChatResponder = Future<CodifyChatMessage> Function(String prompt);
 /// State manager for an AI chat conversation.
 ///
 /// Owns the ordered message timeline and the request lifecycle for a single
-/// chat. `AiChatScreen` listens to this controller and rebuilds when it
-/// changes; the controller is otherwise UI-agnostic.
+/// chat. It keeps a Flyer Chat [ChatController] ([chatController]) in sync with
+/// the timeline so `AiChatScreen` can hand it straight to the Flyer `Chat`
+/// widget; the controller is otherwise UI-agnostic.
 ///
 /// Typical flow:
 ///
@@ -26,8 +29,7 @@ typedef AiChatResponder = Future<CodifyChatMessage> Function(String prompt);
 /// 2. On success the responder's message is appended; on failure an error
 ///    bubble is appended instead.
 /// 3. [markSeen] stamps a message's `seenAt` the first time it becomes
-///    visible — `AiChatScreen` calls this from Flyer Chat's visibility
-///    callback.
+///    visible — `AiChatScreen` calls this from a visibility callback.
 ///
 /// Pass a custom [clock] to override [DateTime.now] in tests.
 class AiChatController extends ChangeNotifier {
@@ -43,6 +45,11 @@ class AiChatController extends ChangeNotifier {
        _clock = clock ?? DateTime.now,
        _messages = List<CodifyChatMessage>.of(
          initialMessages ?? const <CodifyChatMessage>[],
+       ),
+       chatController = InMemoryChatController(
+         messages: (initialMessages ?? const <CodifyChatMessage>[])
+             .map(toFlyerMessage)
+             .toList(),
        ) {
     for (final message in _messages) {
       _messagesById[message.id] = message;
@@ -52,18 +59,41 @@ class AiChatController extends ChangeNotifier {
   final AiChatResponder _responder;
   final DateTime Function() _clock;
   final List<CodifyChatMessage> _messages;
-  // Id index kept in sync with [_messages] so [messageById] is O(1); it is
-  // called once per custom-message bubble on every rebuild.
+  // Id index kept in sync with [_messages] so lookups by id ([messageById],
+  // [markSeen]) are O(1) rather than a linear scan.
   final Map<String, CodifyChatMessage> _messagesById =
       <String, CodifyChatMessage>{};
+  // Cached unmodifiable view of [_messages], rebuilt lazily after a mutation.
+  List<CodifyChatMessage>? _cachedMessages;
   bool _isResponding = false;
   bool _isDisposed = false;
+  // Bumped by [clear]. A [sendText] whose responder was in flight when the
+  // conversation was cleared compares against this and drops its stale reply.
+  int _generation = 0;
+
+  /// The Flyer Chat controller mirroring this timeline.
+  ///
+  /// Exposed so `AiChatScreen` can pass it to the Flyer `Chat` widget;
+  /// consumers drive the chat through [sendText] / [addMessage] and do not
+  /// touch this directly. Kept in sync by every mutation below.
+  ///
+  /// The mutation methods call `insertMessage` / `updateMessage` /
+  /// `setMessages` without `await`. [InMemoryChatController] runs those
+  /// synchronously (no real `await` in their bodies), so call order is
+  /// preserved; swapping in a different [ChatController] implementation
+  /// would need re-verifying.
+  @internal
+  final ChatController chatController;
 
   /// The conversation timeline, oldest first. Unmodifiable.
-  List<CodifyChatMessage> get messages => List.unmodifiable(_messages);
+  ///
+  /// The view is cached and reused until the next mutation, so repeated reads
+  /// do not each allocate a copy.
+  List<CodifyChatMessage> get messages =>
+      _cachedMessages ??= List.unmodifiable(_messages);
 
   /// Whether a backend request is currently in flight. While `true`,
-  /// `AiChatScreen` shows the loading indicator and ignores further sends.
+  /// `AiChatScreen` shows the loading indicator and blocks further sends.
   bool get isResponding => _isResponding;
 
   /// Whether the timeline has no messages.
@@ -81,6 +111,7 @@ class AiChatController extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _isResponding) return;
 
+    final generation = _generation;
     _appendMessage(CodifyChatMessage.user(text: trimmed, createdAt: _clock()));
     _isResponding = true;
     notifyListeners();
@@ -105,10 +136,10 @@ class AiChatController extends ChangeNotifier {
       );
     }
 
-    // The controller may have been disposed while the responder was in flight
-    // (e.g. the user navigated away). Bail before mutating or notifying — a
-    // notifyListeners() after dispose() throws.
-    if (_isDisposed) return;
+    // Bail if, while the responder was in flight, the controller was disposed
+    // (e.g. the user navigated away) or the conversation was cleared — the
+    // reply is stale either way. A notifyListeners() after dispose() throws.
+    if (_isDisposed || generation != _generation) return;
     // Stamp the reply on the controller's clock so the whole timeline shares
     // one time source (and honours an injected test clock).
     _appendMessage(reply.copyWith(createdAt: _clock()));
@@ -132,31 +163,53 @@ class AiChatController extends ChangeNotifier {
   void markSeen(String id) {
     // Visibility callbacks can arrive after the controller is disposed.
     if (_isDisposed) return;
-    final index = _messages.indexWhere((m) => m.id == id);
-    if (index == -1 || _messages[index].seenAt != null) return;
-    final updated = _messages[index].copyWith(seenAt: _clock());
+    // O(1) lookup + early-out: most visibility ticks are no-ops because the
+    // message is absent or already seen.
+    final current = _messagesById[id];
+    if (current == null || current.seenAt != null) return;
+    // Only a genuine first-seen reaches here; locating the list slot for the
+    // in-place update is O(n), but runs at most once per message.
+    final index = _messages.indexOf(current);
+    if (index == -1) return;
+    final updated = current.copyWith(seenAt: _clock());
     _messages[index] = updated;
-    _messagesById[updated.id] = updated;
+    _messagesById[id] = updated;
+    _cachedMessages = null;
+    chatController.updateMessage(
+      toFlyerMessage(current),
+      toFlyerMessage(updated),
+    );
     notifyListeners();
   }
 
   /// Removes every message from the timeline.
+  ///
+  /// If a reply is in flight it is abandoned: [isResponding] is reset now and
+  /// the late reply is dropped on arrival rather than appended to the emptied
+  /// timeline.
   void clear() {
-    if (_messages.isEmpty) return;
+    if (_messages.isEmpty && !_isResponding) return;
     _messages.clear();
     _messagesById.clear();
+    _cachedMessages = null;
+    _isResponding = false;
+    _generation++;
+    chatController.setMessages(const <Message>[]);
     notifyListeners();
   }
 
-  /// Appends [message] to the timeline and keeps the id index in sync.
+  /// Appends [message] to the timeline, the id index, and the Flyer controller.
   void _appendMessage(CodifyChatMessage message) {
     _messages.add(message);
     _messagesById[message.id] = message;
+    _cachedMessages = null;
+    chatController.insertMessage(toFlyerMessage(message));
   }
 
   @override
   void dispose() {
     _isDisposed = true;
+    chatController.dispose();
     super.dispose();
   }
 }

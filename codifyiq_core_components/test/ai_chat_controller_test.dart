@@ -85,6 +85,52 @@ void main() {
       await expectLater(pending, completes);
     });
 
+    test('clear() during a response resets isResponding and drops the late '
+        'reply', () async {
+      final completer = Completer<CodifyChatMessage>();
+      final controller = AiChatController(
+        responder: (prompt) => completer.future,
+      );
+
+      final pending = controller.sendText('hello');
+      expect(controller.isResponding, isTrue);
+
+      controller.clear();
+      expect(controller.isResponding, isFalse);
+      expect(controller.messages, isEmpty);
+
+      completer.complete(CodifyChatMessage.ai(text: 'late reply'));
+      await pending;
+
+      // The late reply is dropped, not appended to the cleared timeline.
+      expect(controller.messages, isEmpty);
+      expect(controller.isResponding, isFalse);
+    });
+
+    test('a send started after clear() is unaffected by the dropped '
+        'reply', () async {
+      final first = Completer<CodifyChatMessage>();
+      final second = Completer<CodifyChatMessage>();
+      var call = 0;
+      final controller = AiChatController(
+        responder: (prompt) => (call++ == 0) ? first.future : second.future,
+      );
+
+      final firstSend = controller.sendText('first');
+      controller.clear();
+
+      final secondSend = controller.sendText('second');
+      // The stale reply to the cleared send lands — it must be dropped.
+      first.complete(CodifyChatMessage.ai(text: 'stale'));
+      await firstSend;
+      expect(controller.messages.map((m) => m.text), ['second']);
+
+      second.complete(CodifyChatMessage.ai(text: 'fresh'));
+      await secondSend;
+      expect(controller.messages.map((m) => m.text), ['second', 'fresh']);
+      expect(controller.isResponding, isFalse);
+    });
+
     test('sendText is ignored while a request is in flight', () async {
       final completer = Completer<CodifyChatMessage>();
       final controller = AiChatController(
@@ -137,6 +183,42 @@ void main() {
 
       expect(controller.messages, hasLength(1));
       expect(controller.messages.single.kind, CodifyChatMessageKind.pdf);
+    });
+
+    test('chatController mirror stays in sync with the timeline', () async {
+      final controller = AiChatController(
+        responder: (prompt) async => CodifyChatMessage.ai(text: 'reply'),
+        initialMessages: [CodifyChatMessage.ai(text: 'greeting', id: 'g1')],
+      );
+
+      // The seed is mirrored into the Flyer controller.
+      expect(controller.chatController.messages.map((m) => m.id), ['g1']);
+
+      await controller.sendText('hello');
+
+      // The user message and the reply are mirrored, in the same order.
+      expect(
+        controller.chatController.messages.map((m) => m.id),
+        controller.messages.map((m) => m.id),
+      );
+
+      controller.clear();
+      expect(controller.chatController.messages, isEmpty);
+    });
+
+    test('markSeen propagates seenAt to the chatController mirror', () {
+      final seenAt = DateTime(2026, 5, 19, 12);
+      final controller = AiChatController(
+        responder: (prompt) async => CodifyChatMessage.ai(text: 'reply'),
+        initialMessages: [CodifyChatMessage.ai(text: 'hi', id: 'm1')],
+        clock: () => seenAt,
+      );
+
+      expect(controller.chatController.messages.single.seenAt, isNull);
+
+      controller.markSeen('m1');
+
+      expect(controller.chatController.messages.single.seenAt, seenAt);
     });
   });
 }

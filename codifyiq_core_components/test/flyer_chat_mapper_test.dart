@@ -1,6 +1,6 @@
 import 'package:codifyiq_core_components/codifyiq_core_components.dart';
 import 'package:codifyiq_core_components/widgets/ai_chat/flyer_chat_mapper.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,8 +8,8 @@ void main() {
     test('text message maps to a Flyer TextMessage', () {
       final flyer = toFlyerMessage(CodifyChatMessage.ai(text: 'hello'));
 
-      expect(flyer, isA<types.TextMessage>());
-      expect((flyer as types.TextMessage).text, 'hello');
+      expect(flyer, isA<TextMessage>());
+      expect((flyer as TextMessage).text, 'hello');
     });
 
     test('image with a sourceUri maps to a Flyer ImageMessage', () {
@@ -20,16 +20,12 @@ void main() {
         ),
       );
 
-      expect(flyer, isA<types.ImageMessage>());
-      final image = flyer as types.ImageMessage;
-      expect(image.uri, 'https://example.com/photo.png');
-      expect(image.name, 'photo.png');
+      expect(flyer, isA<ImageMessage>());
+      expect((flyer as ImageMessage).source, 'https://example.com/photo.png');
     });
 
     test('image without a sourceUri falls back to a CustomMessage', () {
-      final flyer = toFlyerMessage(CodifyChatMessage.image());
-
-      expect(flyer, isA<types.CustomMessage>());
+      expect(toFlyerMessage(CodifyChatMessage.image()), isA<CustomMessage>());
     });
 
     test('pdf with a sourceUri maps to a Flyer FileMessage', () {
@@ -41,47 +37,66 @@ void main() {
         ),
       );
 
-      expect(flyer, isA<types.FileMessage>());
-      final file = flyer as types.FileMessage;
-      expect(file.uri, 'https://example.com/report.pdf');
+      expect(flyer, isA<FileMessage>());
+      final file = flyer as FileMessage;
+      expect(file.source, 'https://example.com/report.pdf');
       expect(file.name, 'report.pdf');
       expect(file.size, 2048);
       expect(file.mimeType, 'application/pdf');
     });
 
+    test('pdf with an unknown fileSizeBytes maps size to null', () {
+      final flyer = toFlyerMessage(
+        CodifyChatMessage.pdf(
+          text: 'report.pdf',
+          sourceUri: Uri.parse('https://example.com/report.pdf'),
+          // fileSizeBytes defaults to 0 == unknown.
+        ),
+      );
+
+      expect((flyer as FileMessage).size, isNull);
+    });
+
     test('pdf without a sourceUri falls back to a CustomMessage', () {
       expect(
         toFlyerMessage(CodifyChatMessage.pdf(text: 'report.pdf')),
-        isA<types.CustomMessage>(),
+        isA<CustomMessage>(),
       );
     });
 
     test('error messages map to a CustomMessage', () {
       expect(
         toFlyerMessage(CodifyChatMessage.error(text: 'failed')),
-        isA<types.CustomMessage>(),
+        isA<CustomMessage>(),
       );
     });
 
-    test('user and ai messages get distinct Flyer authors', () {
+    test('user and ai messages get distinct Flyer author ids', () {
       final user = toFlyerMessage(CodifyChatMessage.user(text: 'hi'));
       final ai = toFlyerMessage(CodifyChatMessage.ai(text: 'hello'));
 
-      expect(user.author.id, userAuthor.id);
-      expect(ai.author.id, aiAuthor.id);
+      expect(user.authorId, userAuthorId);
+      expect(ai.authorId, aiAuthorId);
+      expect(userAuthorId, isNot(aiAuthorId));
+    });
+
+    test('createdAt and seenAt are carried onto the Flyer message', () {
+      final created = DateTime(2026, 5, 19, 10);
+      final seen = DateTime(2026, 5, 19, 11);
+      final flyer = toFlyerMessage(
+        CodifyChatMessage.ai(text: 'hi', createdAt: created, seenAt: seen),
+      );
+
+      expect(flyer.createdAt, created);
+      expect(flyer.seenAt, seen);
     });
   });
 
-  group('toFlyerMessages', () {
-    test('reverses the timeline to the newest-first order Flyer expects', () {
-      final timeline = [
-        CodifyChatMessage.user(text: 'first', id: 'a'),
-        CodifyChatMessage.ai(text: 'second', id: 'b'),
-      ];
-
-      final flyer = toFlyerMessages(timeline);
-
-      expect(flyer.map((m) => m.id), ['b', 'a']);
+  group('resolveCodifyChatUser', () {
+    test('resolves the known author ids and null for anything else', () async {
+      expect((await resolveCodifyChatUser(userAuthorId))?.id, userAuthorId);
+      expect((await resolveCodifyChatUser(aiAuthorId))?.id, aiAuthorId);
+      expect(await resolveCodifyChatUser('someone-else'), isNull);
     });
   });
 }

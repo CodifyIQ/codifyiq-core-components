@@ -179,7 +179,8 @@ class CodifyChatMessage {
   final Uri? sourceUri;
 
   /// Size of the attached file in bytes, shown as the subtitle on pdf/file
-  /// messages. `0` when the size is unknown.
+  /// messages. `0` when the size is unknown — the size line is then hidden
+  /// rather than rendered as "0 B".
   final int fileSizeBytes;
 
   /// Whether the message has been seen by the user.
@@ -215,4 +216,30 @@ class CodifyChatMessage {
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CodifyChatMessage &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          sender == other.sender &&
+          kind == other.kind &&
+          text == other.text &&
+          createdAt == other.createdAt &&
+          seenAt == other.seenAt &&
+          sourceUri == other.sourceUri &&
+          fileSizeBytes == other.fileSizeBytes;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sender,
+    kind,
+    text,
+    createdAt,
+    seenAt,
+    sourceUri,
+    fileSizeBytes,
+  );
 }
