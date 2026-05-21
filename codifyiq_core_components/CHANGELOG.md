@@ -67,14 +67,12 @@
   * Optional reviewer login easter egg for app store submissions — tap the logo to reveal an email/password form for reviewers
   * Built-in processing state replaces sign-in buttons with a progress indicator during authentication, preventing duplicate taps
 * New widget: `SocialSignInButton` — consistent button styling for social sign-in providers
-* New companion package: `flyer_chat_video_message` — renders `VideoMessage` from `flutter_chat_ui` as a fixed-aspect-ratio thumbnail with a play overlay
-  * Wire into `flutter_chat_ui` via `Builders.videoMessageBuilder` with a one-line integration
-  * Prefers backend-provided `thumbnailUrl` from message metadata; falls back to locally generated thumbnails on Android, iOS, and macOS via `video_thumbnail`
-  * Loading, error, and upload-progress states with consumer-supplied builder overrides
-  * Optional duration badge via `message.metadata['duration']`
-  * Full-replacement builders: `customVideoWidget`, `thumbnailBuilder`, `loadingBuilder`, `errorBuilder`, `overlay`
-  * In-memory thumbnail cache prevents redundant generation on list scroll
-  * Supports Android, iOS, macOS, web, Windows, and Linux
+* New widget: `VideoMessageWidget` — tap-to-play inline video with automatic controller lifecycle management
+  * Pass a `source` (network URL, asset path, or local file path) and an optional `thumbnailUrl` — no `VideoPlayerController` boilerplate required
+  * Automatically routes to the correct `VideoPlayerController` factory based on source type
+  * Probes and displays a duration badge automatically when one is not supplied
+  * Customizable via `overlay`, `thumbnailBuilder`, `loadingBuilder`, `errorBuilder`, and `borderRadius`
+  * No provider setup required — works standalone in any widget tree
 
 ## 0.6.0
 * New widget: `AiProgressIndicator` — a subtle shimmer progress indicator to visually communicate that an AI-enabled feature is being executed

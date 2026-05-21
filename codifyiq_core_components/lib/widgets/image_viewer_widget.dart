@@ -8,7 +8,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '_image_viewer_file_io.dart'
-    if (dart.library.html) '_image_viewer_file_web.dart'
+    if (dart.library.js_interop) '_image_viewer_file_web.dart'
     as file_loader;
 
 /// Describes a single image shown by an [ImageViewerWidget].

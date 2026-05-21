@@ -12,15 +12,11 @@ dependencies:
     sdk: flutter
   codifyiq_core_components:
     path: ../
-  flyer_chat_video_message:
-    path: ./flyer_chat_video_message
-  flutter_chat_core: ^2.9.0
-  provider: ^6.1.5+1
-  video_player: ^2.9.2
   adaptive_theme: ^3.7.0
   go_router: ^17.1.0
   flutter_chat_ui: ^2.11.0
   flutter_chat_core: ^2.9.0
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:
