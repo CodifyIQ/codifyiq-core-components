@@ -38,7 +38,6 @@
   * Optional `NotificationCenterScope` `InheritedNotifier` exposes the controller ambiently so any descendant widget can post updates without prop-drilling
   * UI-only: consumers wire the controller to their own task layer (HTTP, isolates, platform background workers, etc.)
 * `BrightnessButton` now renders its dropdown as a Material 3 surface (rounded corners, elevation, surface tint) and accepts `menuAlignmentOffset` / `menuScreenEdgeInset` to control drop distance and the gap from the trailing viewport edge
-* `BrightnessButton` now renders its dropdown as a Material 3 surface (rounded corners, elevation, surface tint) and accepts `menuAlignmentOffset` / `menuScreenEdgeInset` to control drop distance and the gap from the trailing viewport edge — matching the new `NotificationBellButton` styling
 * New widget: `PdfViewerWidget` — a reusable PDF viewer backed by `pdfrx`
   * Render a PDF from any `PdfSource`: network `Uri`, local file path, or in-memory `Uint8List`
   * Pinch-to-zoom on mobile; Ctrl/Cmd + scroll-wheel and on-screen +/− buttons on web
@@ -68,9 +67,12 @@
   * Built-in processing state replaces sign-in buttons with a progress indicator during authentication, preventing duplicate taps
 * New widget: `SocialSignInButton` — consistent button styling for social sign-in providers
 * New widget: `VideoMessageWidget` — tap-to-play inline video with automatic controller lifecycle management
-  * Pass a `source` (network URL, asset path, or local file path) and an optional `thumbnailUrl` — no `VideoPlayerController` boilerplate required
-  * Automatically routes to the correct `VideoPlayerController` factory based on source type
-  * Probes and displays a duration badge automatically when one is not supplied
+  * Pass a `VideoSource` and an optional `thumbnailUrl` — no `VideoPlayerController` boilerplate required
+  * `VideoSource.network(Uri)` / `.asset(String)` / `.file(String)` sealed variants make source type explicit; no more string-prefix heuristics that silently misroute asset paths declared without an `assets/` prefix
+  * **Breaking:** `headers` renamed to `thumbnailHeaders` — applies only to the thumbnail image fetch. Video request headers (e.g. auth tokens for signed CDN URLs) go on `VideoSource.network(uri, headers: {...})`
+  * Duration badge shown via the `duration` parameter (pre-formatted string) or by setting `probeDuration: true` to let the widget discover it at mount time
+  * **`probeDuration` defaults to `false`** — previously the badge was probed automatically for every widget instance; consumers who relied on auto-discovery must now opt in with `probeDuration: true`. Prefer the `duration` parameter for network sources to avoid triggering N concurrent partial downloads in a chat list
+  * **Breaking:** native thumbnail generation (Android, iOS, macOS) has been removed along with the `video_thumbnail` dependency. The package was effectively unmaintained and created long-term SDK compatibility risk. Supply a `thumbnailUrl` from your backend, use `thumbnailBuilder` for a fully custom poster, or let the widget fall back to the default play-icon placeholder
   * Customizable via `overlay`, `thumbnailBuilder`, `loadingBuilder`, `errorBuilder`, and `borderRadius`
   * No provider setup required — works standalone in any widget tree
 

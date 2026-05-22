@@ -1,17 +1,10 @@
-import 'dart:io';
-
 import 'package:codifyiq_core_components/codifyiq_core_components.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
-// Local Flutter asset (works on all platforms).
-const _demoVideoAsset = 'assets/videos/test.mp4';
-
-// Publicly hosted nature video with audio (archive.org, CC BY-SA 4.0).
-const _demoNetworkUrl =
-    'https://archive.org/download/NatureStockVideo/IMG_9486.mp4';
+const _demoVideoSource = VideoSource.asset('assets/videos/test.mp4');
+final _demoNetworkSource = VideoSource.network(
+  Uri.parse('https://archive.org/download/NatureStockVideo/IMG_9486.mp4'),
+);
 
 /// Demo screen for [VideoMessageWidget].
 class VideoMessageExample extends StatelessWidget {
@@ -28,13 +21,10 @@ class VideoMessageExample extends StatelessWidget {
           _Section('Sent / received — bubble grouping'),
           _ChatBubbleGroup(),
           // ── Source types ──────────────────────────────────────────────────
-          _Section('Local asset — tap to play'),
+          _Section('Local asset — probeDuration: true (auto badge)'),
           _LocalAsset(),
-          _Section('Network URL — tap to play'),
+          _Section('Network URL — duration passed explicitly'),
           _NetworkUrl(),
-          // ── Thumbnail generation (Android, iOS, macOS only) ──────────────
-          _Section('Generated thumbnail — no URL provided (native only)'),
-          _GeneratedThumbnail(),
           // ── Widget feature demos ──────────────────────────────────────────
           _Section('Custom play overlay — tap to play'),
           _CustomOverlay(),
@@ -109,7 +99,7 @@ class _ChatBubbleGroup extends StatelessWidget {
         _BubbleRow(
           isSentByMe: false,
           child: VideoMessageWidget(
-            source: _demoNetworkUrl,
+            source: _demoNetworkSource,
             thumbnailUrl: 'https://picsum.photos/id/1043/640/360',
             isSentByMe: false,
             isLastInGroup: false,
@@ -119,7 +109,7 @@ class _ChatBubbleGroup extends StatelessWidget {
         _BubbleRow(
           isSentByMe: false,
           child: VideoMessageWidget(
-            source: _demoNetworkUrl,
+            source: _demoNetworkSource,
             thumbnailUrl: 'https://picsum.photos/id/1035/640/360',
             isSentByMe: false,
             isLastInGroup: true,
@@ -130,7 +120,7 @@ class _ChatBubbleGroup extends StatelessWidget {
         _BubbleRow(
           isSentByMe: true,
           child: VideoMessageWidget(
-            source: _demoVideoAsset,
+            source: _demoVideoSource,
             thumbnailUrl: 'https://picsum.photos/id/1015/640/360',
             isSentByMe: true,
             isLastInGroup: true,
@@ -165,8 +155,9 @@ class _LocalAsset extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _Card(
       child: VideoMessageWidget(
-        source: _demoVideoAsset,
+        source: _demoVideoSource,
         thumbnailUrl: 'https://picsum.photos/id/1015/640/360',
+        probeDuration: true,
       ),
     );
   }
@@ -177,77 +168,12 @@ class _NetworkUrl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _Card(
-      child: VideoMessageWidget(
-        source: _demoNetworkUrl,
-        thumbnailUrl: 'https://picsum.photos/id/1035/640/360',
-      ),
-    );
-  }
-}
-
-// ── Generated thumbnail demo ──────────────────────────────────────────────────
-
-// Copies the bundled asset to a real file path that video_thumbnail can read.
-// Flutter assets are not accessible as file paths by native plugins.
-Future<String> _extractAssetToTemp(String assetPath) async {
-  final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/${assetPath.split('/').last}');
-  if (!file.existsSync()) {
-    final data = await rootBundle.load(assetPath);
-    await file.writeAsBytes(data.buffer.asUint8List());
-  }
-  return file.path;
-}
-
-class _GeneratedThumbnail extends StatefulWidget {
-  const _GeneratedThumbnail();
-
-  @override
-  State<_GeneratedThumbnail> createState() => _GeneratedThumbnailState();
-}
-
-class _GeneratedThumbnailState extends State<_GeneratedThumbnail> {
-  String? _localPath;
-
-  @override
-  void initState() {
-    super.initState();
-    // path_provider and dart:io are unavailable on web.
-    if (kIsWeb) return;
-    _extractAssetToTemp(_demoVideoAsset).then((path) {
-      if (mounted) setState(() => _localPath = path);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kIsWeb) {
-      return _Card(
-        child: SizedBox(
-          height: 160,
-          child: Center(
-            child: Text(
-              'Not supported on web',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ),
-        ),
-      );
-    }
-    final path = _localPath;
-    if (path == null) {
-      return const _Card(
-        child: SizedBox(
-          height: 160,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
     return _Card(
-      child: VideoMessageWidget(source: path),
+      child: VideoMessageWidget(
+        source: _demoNetworkSource,
+        thumbnailUrl: 'https://picsum.photos/id/1035/640/360',
+        duration: '0:30',
+      ),
     );
   }
 }
@@ -262,7 +188,7 @@ class _CustomOverlay extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return _Card(
       child: VideoMessageWidget(
-        source: _demoVideoAsset,
+        source: _demoVideoSource,
         thumbnailUrl: 'https://picsum.photos/id/1043/640/360',
         duration: '3:01',
         overlay: Center(
@@ -292,7 +218,7 @@ class _CustomThumbnailBuilder extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return _Card(
       child: VideoMessageWidget(
-        source: _demoVideoAsset,
+        source: _demoVideoSource,
         duration: '0:12',
         thumbnailBuilder: (_) => Container(
           decoration: BoxDecoration(
@@ -324,7 +250,7 @@ class _LoadingState extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Card(
       child: VideoMessageWidget(
-        source: 'https://example.com/not-yet-ready.mp4',
+        source: VideoSource.network(Uri.parse('https://example.com/not-yet-ready.mp4')),
         thumbnailUrl: 'https://via.placeholder.com/640x360',
         loadingBuilder: (_) => ColoredBox(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -343,7 +269,7 @@ class _ErrorState extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return _Card(
       child: VideoMessageWidget(
-        source: 'https://example.com/missing.mp4',
+        source: VideoSource.network(Uri.parse('https://example.com/missing.mp4')),
         errorBuilder: (_) => ColoredBox(
           color: cs.errorContainer,
           child: Center(

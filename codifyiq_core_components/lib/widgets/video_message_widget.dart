@@ -1,35 +1,10 @@
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '_video_controller_file_io.dart'
     if (dart.library.js_interop) '_video_controller_file_web.dart';
-
-bool get _canGenerateThumbnail =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS);
-
-// App-lifetime in-memory cache shared across all widget instances.
-// Keyed by video source to avoid re-running thumbnail generation on
-// every rebuild or list scroll.
-final class _ThumbnailCache {
-  _ThumbnailCache._();
-  static final instance = _ThumbnailCache._();
-  static const _maxEntries = 50;
-  final _store = <String, Uint8List>{};
-  Uint8List? get(String key) => _store[key];
-  void put(String key, Uint8List bytes) {
-    if (_store.length >= _maxEntries) _store.remove(_store.keys.first);
-    _store[key] = bytes;
-  }
-}
+import 'video_source.dart';
 
 // App-lifetime cache for video metadata (duration).
 // Avoids re-initialising a VideoPlayerController on every widget mount just
@@ -37,10 +12,19 @@ final class _ThumbnailCache {
 final class _MetadataCache {
   _MetadataCache._();
   static final instance = _MetadataCache._();
+  static const _maxEntries = 50;
   final _durations = <String, String>{};
-  String? getDuration(String source) => _durations[source];
-  void putDuration(String source, String duration) =>
-      _durations[source] = duration;
+  String? getDuration(String key) {
+    final value = _durations.remove(key);
+    if (value != null) _durations[key] = value; // re-insert to mark as most-recently-used
+    return value;
+  }
+
+  void putDuration(String key, String duration) {
+    _durations.remove(key); // ensure re-insertion moves it to end
+    if (_durations.length >= _maxEntries) _durations.remove(_durations.keys.first);
+    _durations[key] = duration;
+  }
 }
 
 // Default corner radii for chat bubbles.
@@ -53,21 +37,6 @@ typedef _PlayerSnapshot = ({bool isPlaying});
 _PlayerSnapshot _snapshotOf(VideoPlayerController ctrl) =>
     (isPlaying: ctrl.value.isPlaying);
 
-enum _ThumbnailState {
-  /// Thumbnail generation is in progress.
-  loading,
-
-  /// A generated thumbnail is available.
-  loaded,
-
-  /// No thumbnail source was provided and the platform cannot generate one.
-  /// Shows the default placeholder — not an error, just no poster image.
-  missing,
-
-  /// A thumbnail source existed but failed (URL 404, generation threw, etc.).
-  /// Calls [VideoMessageWidget.errorBuilder] if provided.
-  error,
-}
 
 /// A video message widget with tap-to-play inline playback.
 ///
@@ -78,28 +47,26 @@ enum _ThumbnailState {
 /// ## Thumbnail resolution order
 ///
 /// 1. [thumbnailBuilder] — fully custom widget, skips all other logic.
-/// 2. [thumbnailUrl] — network image (preferred; no local generation needed).
-/// 3. Locally generated via `video_thumbnail` (Android, iOS, macOS only).
-/// 4. [errorBuilder] / placeholder when all sources fail.
-///
-/// Generated thumbnails are cached in memory for the app's lifetime so that
-/// scrolling a long list does not re-trigger generation.
+/// 2. [thumbnailUrl] — network image.
+/// 3. [errorBuilder] / placeholder when all sources fail.
 ///
 /// ## Source routing
 ///
-/// The correct [VideoPlayerController] factory is chosen automatically:
-/// - `http://` / `https://` → [VideoPlayerController.networkUrl]
-/// - bare file path (native only) → [VideoPlayerController.file]
-/// - anything else → [VideoPlayerController.asset]
+/// Pass a [VideoSource] variant to specify the source type explicitly:
+/// - [VideoSource.network] — HTTP/HTTPS URL, with optional auth headers
+/// - [VideoSource.asset] — Flutter asset declared in `pubspec.yaml`
+/// - [VideoSource.file] — local file path (native only)
 ///
 /// ## Duration badge
 ///
-/// Pass a pre-formatted string via [duration] (e.g. `'1:23'`), or omit it to
-/// have the widget probe the video source in the background and display the
-/// badge automatically once the duration is known.
+/// Pass a pre-formatted string via [duration] (e.g. `'1:23'`) to show a badge
+/// without any background I/O. Set [probeDuration] to `true` to have the
+/// widget probe [source] itself — use this only for asset / file sources or
+/// single-video screens, not for network sources in a scrolling list.
 class VideoMessageWidget extends StatefulWidget {
-  /// The video source — a network URL, asset path, or local file path.
-  final String source;
+  /// The video source. Use [VideoSource.network], [VideoSource.asset], or
+  /// [VideoSource.file] to disambiguate the source type explicitly.
+  final VideoSource source;
 
   /// Optional network URL for the thumbnail image.
   ///
@@ -109,9 +76,22 @@ class VideoMessageWidget extends StatefulWidget {
 
   /// Pre-formatted duration string displayed as a badge (e.g. `'1:23'`).
   ///
-  /// When omitted, the widget probes [source] in the background and fills in
-  /// the badge automatically.
+  /// Takes precedence over [probeDuration]. When both are omitted no badge
+  /// is shown.
   final String? duration;
+
+  /// Whether to probe [source] in the background to discover its duration
+  /// and display it as a badge automatically.
+  ///
+  /// Defaults to `false`. Probing is silently skipped for [VideoSource.network]
+  /// regardless of this flag — initialising a network controller opens a
+  /// connection and buffers initial bytes, which is unsafe to do for every
+  /// item in a chat list. Prefer passing a pre-formatted [duration] for
+  /// network videos, and reserve [probeDuration] for [VideoSource.asset] /
+  /// [VideoSource.file] sources or isolated single-video screens.
+  ///
+  /// Has no effect when [duration] is provided.
+  final bool probeDuration;
 
   /// Aspect ratio of the video container. Defaults to `16 / 9`.
   final double aspectRatio;
@@ -152,25 +132,26 @@ class VideoMessageWidget extends StatefulWidget {
 
   /// Builder for a fully custom thumbnail widget.
   ///
-  /// When set, [thumbnailUrl] and local generation are both skipped.
+  /// When set, [thumbnailUrl] is skipped.
   final WidgetBuilder? thumbnailBuilder;
 
   /// Builder for the thumbnail-loading state.
   ///
-  /// Shown while [thumbnailUrl] is downloading or local generation is in
-  /// progress. Defaults to a [CircularProgressIndicator] on a surface-coloured
-  /// background.
+  /// Shown while [thumbnailUrl] is downloading. Defaults to a
+  /// [CircularProgressIndicator] on a surface-coloured background.
   final WidgetBuilder? loadingBuilder;
 
   /// Builder for the thumbnail-error state.
   ///
-  /// Shown when all thumbnail sources have failed or the platform does not
-  /// support generation. Defaults to a play-arrow icon on a surface-coloured
-  /// background.
+  /// Shown when [thumbnailUrl] fails to load. Defaults to a play-arrow icon
+  /// on a surface-coloured background.
   final WidgetBuilder? errorBuilder;
 
   /// HTTP headers forwarded when fetching [thumbnailUrl].
-  final Map<String, String>? headers;
+  ///
+  /// For video request headers (e.g. auth tokens on a signed CDN URL), set
+  /// [VideoSource.network]'s `headers` parameter instead.
+  final Map<String, String>? thumbnailHeaders;
 
   /// Creates a [VideoMessageWidget].
   const VideoMessageWidget({
@@ -178,6 +159,7 @@ class VideoMessageWidget extends StatefulWidget {
     required this.source,
     this.thumbnailUrl,
     this.duration,
+    this.probeDuration = false,
     this.aspectRatio = 16 / 9,
     this.isSentByMe = false,
     this.isLastInGroup = true,
@@ -187,7 +169,7 @@ class VideoMessageWidget extends StatefulWidget {
     this.thumbnailBuilder,
     this.loadingBuilder,
     this.errorBuilder,
-    this.headers,
+    this.thumbnailHeaders,
   });
 
   @override
@@ -203,11 +185,13 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   _PlayerSnapshot? _lastSnapshot;
   String? _detectedDuration;
 
-  // Only used when thumbnailUrl is absent and the platform supports generation.
-  _ThumbnailState _thumbnailState = _ThumbnailState.missing;
-  Uint8List? _generatedThumbnail;
-
   String? get _effectiveDuration => widget.duration ?? _detectedDuration;
+
+  String get _sourceKey => switch (widget.source) {
+    VideoNetworkSource(:final uri) => uri.toString(),
+    VideoAssetSource(:final path) => path,
+    VideoFileSource(:final path) => path,
+  };
 
   BorderRadiusGeometry get _effectiveBorderRadius {
     if (widget.borderRadius != null) return widget.borderRadius!;
@@ -241,22 +225,10 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   }
 
   void _initBackground() {
-    if (widget.thumbnailUrl == null && widget.thumbnailBuilder == null) {
-      if (_canGenerateThumbnail) {
-        final cached = _ThumbnailCache.instance.get(widget.source);
-        if (cached != null) {
-          setState(() => _generatedThumbnail = cached);
-        } else {
-          setState(() => _thumbnailState = _ThumbnailState.loading);
-          _generateThumbnail();
-        }
-      } else {
-        setState(() => _thumbnailState = _ThumbnailState.missing);
-      }
-    }
-
-    if (widget.duration == null) {
-      final cachedDuration = _MetadataCache.instance.getDuration(widget.source);
+    if (widget.duration == null &&
+        widget.probeDuration &&
+        widget.source is! VideoNetworkSource) {
+      final cachedDuration = _MetadataCache.instance.getDuration(_sourceKey);
       if (cachedDuration != null) {
         setState(() => _detectedDuration = cachedDuration);
       } else {
@@ -284,37 +256,12 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     }
   }
 
-  VideoPlayerController _makeController() {
-    final src = widget.source;
-    if (src.startsWith('http://') || src.startsWith('https://')) {
-      return VideoPlayerController.networkUrl(Uri.parse(src));
-    }
-    if (!kIsWeb && !src.startsWith('assets/')) {
-      return fileVideoController(src);
-    }
-    return VideoPlayerController.asset(src);
-  }
-
-  Future<void> _generateThumbnail() async {
-    try {
-      final data = await VideoThumbnail.thumbnailData(
-        video: widget.source,
-        imageFormat: ImageFormat.JPEG,
-        maxHeight: 300,
-        quality: 75,
-      ).timeout(const Duration(seconds: 10));
-      if (!mounted) return;
-      if (data != null) _ThumbnailCache.instance.put(widget.source, data);
-      setState(() {
-        _generatedThumbnail = data;
-        _thumbnailState =
-            data != null ? _ThumbnailState.loaded : _ThumbnailState.error;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _thumbnailState = _ThumbnailState.error);
-    }
-  }
+  VideoPlayerController _makeController() => switch (widget.source) {
+    VideoNetworkSource(:final uri, :final headers) =>
+      VideoPlayerController.networkUrl(uri, httpHeaders: headers ?? const {}),
+    VideoAssetSource(:final path) => VideoPlayerController.asset(path),
+    VideoFileSource(:final path) => fileVideoController(path),
+  };
 
   Future<void> _probeDuration() async {
     final probe = _makeController();
@@ -327,7 +274,7 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         final m = d.inMinutes;
         final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
         final label = '$m:$s';
-        _MetadataCache.instance.putDuration(widget.source, label);
+        _MetadataCache.instance.putDuration(_sourceKey, label);
         setState(() => _detectedDuration = label);
       }
       // Keep the initialized controller alive for reuse on first tap.
@@ -429,21 +376,14 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        headers: widget.headers,
+        headers: widget.thumbnailHeaders,
         loadingBuilder: (context, child, progress) =>
             progress == null ? child : _buildLoadingPlaceholder(context),
         errorBuilder: (_, _, _) => _buildErrorPlaceholder(context),
       );
     }
 
-    return switch (_thumbnailState) {
-      _ThumbnailState.loading => _buildLoadingPlaceholder(context),
-      _ThumbnailState.missing => _buildDefaultPlaceholder(context),
-      _ThumbnailState.error => _buildErrorPlaceholder(context),
-      _ThumbnailState.loaded when _generatedThumbnail != null =>
-        Image.memory(_generatedThumbnail!, fit: BoxFit.cover),
-      _ => _buildDefaultPlaceholder(context),
-    };
+    return _buildDefaultPlaceholder(context);
   }
 
   Widget _buildLoadingPlaceholder(BuildContext context) {
