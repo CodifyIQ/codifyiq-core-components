@@ -27,6 +27,10 @@ class UserAvatarExample extends StatelessWidget {
       displayName: 'Linus',
     ),
     _DemoUser(
+      label: 'Initials from a kanji name (葛飾 北斎 → 葛北)',
+      displayName: '葛飾 北斎',
+    ),
+    _DemoUser(
       label: 'Initials from email (no name)',
       email: 'kathleen.booth@example.com',
     ),

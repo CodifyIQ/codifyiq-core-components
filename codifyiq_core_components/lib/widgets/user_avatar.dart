@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Signature for a function that builds an [ImageProvider] for a given photo
@@ -52,9 +53,10 @@ class UserAvatar extends StatefulWidget {
     this.radius = 20.0,
     this.backgroundColor,
     this.foregroundColor,
-    this.fallback,
+    this.fallbackChild,
     this.headers,
     this.imageProviderBuilder,
+    this.semanticLabel,
   });
 
   /// URL of the user's profile photo. When null or empty, the fallback is
@@ -81,9 +83,10 @@ class UserAvatar extends StatefulWidget {
   /// `Theme.of(context).colorScheme.onSecondary`.
   final Color? foregroundColor;
 
-  /// Custom widget rendered in the fallback circle in place of initials or
-  /// the default person icon.
-  final Widget? fallback;
+  /// Custom widget rendered as the child of the fallback `CircleAvatar` in
+  /// place of initials or the default person icon. The surrounding circle
+  /// (using [radius] and [backgroundColor]) is still rendered around it.
+  final Widget? fallbackChild;
 
   /// Optional HTTP headers forwarded to the image provider — typically used
   /// for `Authorization` tokens when the photo endpoint is protected.
@@ -93,22 +96,31 @@ class UserAvatar extends StatefulWidget {
   /// [NetworkImage] is used. Supply this to integrate a disk-backed cache.
   final UserAvatarImageProviderBuilder? imageProviderBuilder;
 
+  /// Accessibility label announced by assistive technologies. When omitted,
+  /// the widget falls back to [displayName], then [email], then the literal
+  /// string `'User avatar'`.
+  final String? semanticLabel;
+
   /// Computes the initials that the fallback would render for the given
   /// [displayName] and [email]. Exposed for callers that want to mirror the
   /// avatar's initials elsewhere in their UI (e.g. in a menu header).
   static String initialsFor({String? displayName, String? email}) {
+    String firstGrapheme(String s) => s.characters.first;
+    String firstTwoGraphemes(String s) =>
+        s.characters.take(2).toString();
+
     if (displayName != null && displayName.trim().isNotEmpty) {
       final parts = displayName.trim().split(RegExp(r'\s+'));
       if (parts.length >= 2) {
-        return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+        return '${firstGrapheme(parts.first)}${firstGrapheme(parts.last)}'
+            .toUpperCase();
       }
-      final only = parts.first;
-      return (only.length > 1 ? only.substring(0, 2) : only).toUpperCase();
+      return firstTwoGraphemes(parts.first).toUpperCase();
     }
     if (email != null && email.isNotEmpty) {
       final user = email.split('@').first;
       if (user.isEmpty) return '';
-      return (user.length > 1 ? user.substring(0, 2) : user).toUpperCase();
+      return firstTwoGraphemes(user).toUpperCase();
     }
     return '';
   }
@@ -131,7 +143,7 @@ class _UserAvatarState extends State<UserAvatar> {
   void didUpdateWidget(UserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.photoUrl != widget.photoUrl ||
-        oldWidget.headers != widget.headers ||
+        !mapEquals(oldWidget.headers, widget.headers) ||
         oldWidget.imageProviderBuilder != widget.imageProviderBuilder) {
       setState(() {
         _image = _buildImage();
@@ -155,27 +167,35 @@ class _UserAvatarState extends State<UserAvatar> {
     final background = widget.backgroundColor ?? theme.colorScheme.secondary;
     final foreground = widget.foregroundColor ?? theme.colorScheme.onSecondary;
 
-    if (_image == null || _hasError) {
-      return _buildFallback(background, foreground);
-    }
+    final Widget avatar = (_image == null || _hasError)
+        ? _buildFallback(background, foreground)
+        : CircleAvatar(
+            radius: widget.radius,
+            backgroundColor: Colors.transparent,
+            child: ClipOval(
+              child: Image(
+                image: _image!,
+                fit: BoxFit.cover,
+                width: widget.radius * 2,
+                height: widget.radius * 2,
+                errorBuilder: (context, error, stackTrace) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _hasError = true);
+                  });
+                  return _buildFallback(background, foreground);
+                },
+              ),
+            ),
+          );
 
-    return CircleAvatar(
-      radius: widget.radius,
-      backgroundColor: Colors.transparent,
-      child: ClipOval(
-        child: Image(
-          image: _image!,
-          fit: BoxFit.cover,
-          width: widget.radius * 2,
-          height: widget.radius * 2,
-          errorBuilder: (context, error, stackTrace) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _hasError = true);
-            });
-            return _buildFallback(background, foreground);
-          },
-        ),
-      ),
+    return Semantics(
+      label: widget.semanticLabel ??
+          widget.displayName ??
+          widget.email ??
+          'User avatar',
+      image: true,
+      container: true,
+      child: ExcludeSemantics(child: avatar),
     );
   }
 
@@ -187,7 +207,7 @@ class _UserAvatarState extends State<UserAvatar> {
     return CircleAvatar(
       radius: widget.radius,
       backgroundColor: background,
-      child: widget.fallback ??
+      child: widget.fallbackChild ??
           (initials.isNotEmpty
               ? Text(
                   initials,
