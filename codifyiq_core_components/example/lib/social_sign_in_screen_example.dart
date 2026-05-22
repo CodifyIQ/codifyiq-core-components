@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 
 /// An example page that demonstrates the usage of [SocialSignInScreen].
 ///
-/// This widget displays a sign-in screen with placeholder branding,
-/// two social sign-in buttons (Google and Apple), a footer, and the
-/// reviewer login easter egg enabled (tap the logo 5 times to reveal it).
+/// Renders the sign-in screen with placeholder branding and up to three
+/// social sign-in buttons (Google, Apple, and Microsoft Office 365). Each
+/// provider can be independently toggled on or off via the app-bar overflow
+/// menu — Google and Apple are enabled by default; Microsoft is disabled by
+/// default in the library, but active in this examples as an optional
+/// enterprise provider behind a feature flag.
 ///
-/// Tapping either social button simulates a login handshake by enabling
+/// The reviewer login easter egg is enabled (tap the logo 5 times to reveal
+/// it). Tapping any social button simulates a login handshake by enabling
 /// the processing state for a few seconds.
 class SocialSignInScreenExample extends StatefulWidget {
   /// Creates an instance of [SocialSignInScreenExample].
@@ -20,6 +24,9 @@ class SocialSignInScreenExample extends StatefulWidget {
 
 class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
   bool _isProcessing = false;
+  bool _googleEnabled = true;
+  bool _appleEnabled = true;
+  bool _microsoftEnabled = true;
 
   void _simulateSignIn(String provider) {
     setState(() => _isProcessing = true);
@@ -39,7 +46,42 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
   @override
   Widget build(BuildContext context) {
     return SocialSignInScreen(
-      appBar: AppBar(title: const Text('Social Sign-In Screen Example')),
+      appBar: AppBar(
+        title: const Text('Social Sign-In Screen Example'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Enabled providers',
+            icon: const Icon(Icons.tune),
+            onSelected: (value) => setState(() {
+              switch (value) {
+                case 'google':
+                  _googleEnabled = !_googleEnabled;
+                case 'apple':
+                  _appleEnabled = !_appleEnabled;
+                case 'microsoft':
+                  _microsoftEnabled = !_microsoftEnabled;
+              }
+            }),
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(
+                value: 'google',
+                checked: _googleEnabled,
+                child: const Text('Google'),
+              ),
+              CheckedPopupMenuItem(
+                value: 'apple',
+                checked: _appleEnabled,
+                child: const Text('Apple'),
+              ),
+              CheckedPopupMenuItem(
+                value: 'microsoft',
+                checked: _microsoftEnabled,
+                child: const Text('Microsoft Office 365'),
+              ),
+            ],
+          ),
+        ],
+      ),
       logo: const FlutterLogo(size: 120),
       tagline: Text(
         'Empowering developers to build more',
@@ -50,27 +92,21 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
       ),
       isProcessing: _isProcessing,
       signInButtons: [
-        SocialSignInButton(
-          label: 'Continue with Google',
-          // In production, use the official Google "G" SVG with brand
-          // colors baked in. A placeholder icon is used here to avoid
-          // bundling trademarked assets in the published package.
-          icon: const Icon(Icons.g_mobiledata, size: 24),
-          onPressed: () => _simulateSignIn('Google'),
-        ),
-        SocialSignInButton(
-          label: 'Continue with Apple',
-          // In production, use the official Apple logo asset. Per Apple's
-          // guidelines the logo must be black on light backgrounds and
-          // white on dark backgrounds — never themed to match the app.
-          icon: Icon(
-            Icons.apple,
-            color: Theme.of(context).brightness == Brightness.light
-                ? Colors.black
-                : Colors.white,
-          ),
-          onPressed: () => _simulateSignIn('Apple'),
-        ),
+        // Each provider button ships with a Material Icons placeholder glyph
+        // suitable for prototyping. In production, override `icon:` with the
+        // official brand asset — e.g.:
+        //   GoogleSignInButton(
+        //     icon: SvgPicture.asset('assets/google-logo.svg', width: 18, height: 18),
+        //     onPressed: ...,
+        //   )
+        // See each widget's dartdoc for links to the provider's branding
+        // guidelines.
+        if (_googleEnabled)
+          GoogleSignInButton(onPressed: () => _simulateSignIn('Google')),
+        if (_appleEnabled)
+          AppleSignInButton(onPressed: () => _simulateSignIn('Apple')),
+        if (_microsoftEnabled)
+          MicrosoftSignInButton(onPressed: () => _simulateSignIn('Microsoft')),
       ],
       reviewerLoginEnabled: true,
       onReviewerSignIn: (email, password) {
