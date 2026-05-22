@@ -10,6 +10,18 @@
   * Static `UserAvatar.initialsFor({displayName, email})` helper exposes the initials algorithm for mirroring elsewhere in consumer UI (menu headers, mentions, etc.)
 * New widgets: `GoogleSignInButton`, `AppleSignInButton`, and `MicrosoftSignInButton` — `SocialSignInButton` convenience wrappers preconfigured with provider-appropriate labels (`'Continue with Google'`, `'Continue with Apple'`, `'Continue with Microsoft'`) and Material Icons placeholder glyphs for `icon`, so they work out of the box for prototyping. Production consumers should override `icon` with the official brand asset (trademarked logos cannot be bundled in the published package); class dartdocs link directly to each provider's branding guidelines
 * `AppleSignInButton` enforces Apple's black-on-light / white-on-dark icon rule by wrapping the supplied `icon` in an `IconTheme` whose color is derived from the ambient theme brightness — plain `Icon` widgets pick it up automatically; non-`Icon` assets read from `IconTheme.of(context)`. New `AppleIconBrightness` enum lets the caller override the auto-detected brightness via `iconBrightness:` (e.g. for buttons placed on backgrounds that diverge from the surrounding theme)
+* New widget: `AudioMessageWidget` — a self-contained audio player for chat messages
+  * Play/pause button, scrubbing slider, and elapsed/total duration readout
+  * Four clearly differentiated states: idle (ready to play), loading (buffering), playing, and error
+  * Accepts an HTTP/HTTPS URL or local file path via `url`
+  * Optional `controller` parameter to inject an external `AudioMessageController` — omit it to let the widget manage its own lifecycle
+  * All colors sourced from `Theme.of(context).colorScheme` for full Material 3 support
+* New class: `AudioMessageController` — `ChangeNotifier` backed by a pluggable `AudioPlayerBackend`
+  * Exposes `state` (`AudioPlaybackState` enum), `position`, `duration`, and `progress` fraction
+  * Methods: `play()`, `pause()`, `seek(double progress)`
+  * Lazily loads the URL on first `play()` call; subsequent calls resume from the paused position
+  * Stops when the audio completes; tapping play again restarts from the beginning
+* `AudioMessageController` leverages `just_audio` via the default `JustAudioPlayerBackend`; supply a custom `AudioPlayerBackend` to swap the audio engine
 * New widget set: `NotificationBellButton`, `NotificationCenterPanel`, `NotificationCenterPage`, and `NotificationCenterController` — a Play Store-style notification center for tracking long-running, user-initiated tasks
   * App-bar bell with a stoplight-coded Material 3 badge — amber while work is in flight, green when every tracked item completed, and red when at least one item failed (failure always wins so a regression is never hidden behind an in-progress indicator)
   * Bell icon swaps to a filled variant whenever items are tracked, so state is conveyed by shape as well as color (WCAG 1.4.1)
