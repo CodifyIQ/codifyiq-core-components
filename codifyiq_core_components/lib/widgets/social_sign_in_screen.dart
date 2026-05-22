@@ -377,33 +377,19 @@ class _ReviewerLoginFormState extends State<_ReviewerLoginForm> {
 /// the common pattern for social sign-in buttons. Not required — consumers can
 /// use any widget in [SocialSignInScreen.signInButtons].
 ///
+/// For the common providers, prefer the preconfigured wrappers that bake in
+/// the brand-mandated label and (where applicable) icon coloring:
+/// [GoogleSignInButton], [AppleSignInButton], and [MicrosoftSignInButton].
+/// Use [SocialSignInButton] directly only for providers without a wrapper
+/// (e.g., Facebook, GitHub, an enterprise IdP) or when you need full control
+/// over the label.
+///
 /// **Important:** Social sign-in providers require their official logos with
 /// brand-compliant colors — do not allow icons to inherit your app's theme
 /// colors. This library intentionally does not bundle provider logos, as they
 /// are trademarked assets that cannot be redistributed in an open-source
-/// package. You must obtain them directly from each provider:
-///
-/// * **Google:** Download from [Google Identity Branding Guidelines](https://developers.google.com/identity/branding-guidelines)
-/// * **Apple:** Download from [Apple Design Resources](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple)
-///
-/// ```dart
-/// // Google: official logo SVG with brand colors baked in
-/// SocialSignInButton(
-///   label: 'Continue with Google',
-///   icon: SvgPicture.asset('assets/google-logo.svg', width: 18, height: 18),
-///   onPressed: () => _signInWithGoogle(),
-/// )
-///
-/// // Apple: black on light backgrounds, white on dark
-/// SocialSignInButton(
-///   label: 'Continue with Apple',
-///   icon: Icon(Icons.apple,
-///     color: Theme.of(context).brightness == Brightness.light
-///       ? Colors.black
-///       : Colors.white),
-///   onPressed: () => _signInWithApple(),
-/// )
-/// ```
+/// package. Obtain them directly from each provider's branding guidelines
+/// (links in the per-provider wrapper class docs).
 class SocialSignInButton extends StatelessWidget {
   /// Creates a [SocialSignInButton].
   ///
@@ -444,6 +430,247 @@ class SocialSignInButton extends StatelessWidget {
         label: Text(label),
         style: style,
       ),
+    );
+  }
+}
+
+/// A convenience [SocialSignInButton] preconfigured for Google sign-in.
+///
+/// Defaults [label] to `'Continue with Google'` and [icon] to a Material
+/// Icons placeholder suitable for prototyping. **For production**, replace
+/// [icon] with the official multi-colored "G" mark from the
+/// [Google Identity Branding Guidelines](https://developers.google.com/identity/branding-guidelines);
+/// Google's guidelines require the brand colors be preserved, and the
+/// placeholder is not brand-compliant. The official logo is a trademarked
+/// asset and cannot be bundled in an open-source package — obtain it
+/// directly from Google.
+///
+/// ```dart
+/// GoogleSignInButton(
+///   icon: SvgPicture.asset('assets/google-logo.svg', width: 18, height: 18),
+///   onPressed: () => _signInWithGoogle(),
+/// )
+/// ```
+class GoogleSignInButton extends StatelessWidget {
+  /// Creates a [GoogleSignInButton].
+  ///
+  /// [onPressed] is the tap handler; pass `null` to disable the button.
+  /// [icon] overrides the placeholder Material Icons glyph — replace with
+  /// the official Google "G" mark for production (see class docs).
+  /// [label] overrides the default `'Continue with Google'` text.
+  const GoogleSignInButton({
+    super.key,
+    required this.onPressed,
+    this.icon = const Icon(Icons.g_mobiledata, size: 24),
+    this.label = 'Continue with Google',
+    this.style,
+    this.width = 300,
+  });
+
+  /// The Google logo widget. Defaults to a Material Icons placeholder
+  /// suitable for prototyping; replace with the official brand asset for
+  /// production (see class docs).
+  final Widget icon;
+
+  /// Tap handler. Pass `null` to disable the button.
+  final VoidCallback? onPressed;
+
+  /// The button text. Defaults to `'Continue with Google'`.
+  final String label;
+
+  /// Optional style override for the underlying button.
+  final ButtonStyle? style;
+
+  /// The button width. Defaults to `300`.
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SocialSignInButton(
+      label: label,
+      icon: icon,
+      onPressed: onPressed,
+      style: style,
+      width: width,
+    );
+  }
+}
+
+/// Background brightness used to resolve the Apple logo color.
+///
+/// Apple's sign-in guidelines mandate exactly two icon colors — black on
+/// light backgrounds, white on dark — so [AppleSignInButton] restricts the
+/// override to these two choices rather than accepting an arbitrary [Color].
+enum AppleIconBrightness {
+  /// Light background — Apple mark must be black.
+  light,
+
+  /// Dark background — Apple mark must be white.
+  dark,
+}
+
+/// A convenience [SocialSignInButton] preconfigured for Apple sign-in.
+///
+/// Defaults [label] to `'Continue with Apple'`. Per Apple's guidelines the
+/// logo must be **black on light backgrounds** and **white on dark
+/// backgrounds** — never themed to match the app. This widget enforces that
+/// rule by wrapping [icon] in an [IconTheme] whose color is derived from the
+/// ambient [Theme.of] brightness (override with [iconBrightness] when the
+/// button sits on a background whose brightness differs from the surrounding
+/// theme).
+///
+/// The [IconTheme] mechanism colors `Icon` widgets automatically. For
+/// `SvgPicture`, `Image`, or other non-[Icon] logo assets, read the color
+/// from `IconTheme.of(context).color` in your icon widget and apply it via
+/// the asset's color/`colorFilter` parameter.
+///
+/// Defaults [icon] to Material's `Icons.apple` glyph, which is suitable for
+/// prototyping and is colored automatically by the [IconTheme] wrap. For
+/// production, replace it with the official Apple mark from
+/// [Apple Design Resources](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple)
+/// (the Apple logo is a trademarked asset and cannot be bundled in an
+/// open-source package).
+///
+/// ```dart
+/// // Defaults — uses Material's Apple glyph.
+/// AppleSignInButton(onPressed: () => _signInWithApple())
+///
+/// // Production — official SVG asset, color read from the IconTheme.
+/// AppleSignInButton(
+///   icon: Builder(
+///     builder: (context) => SvgPicture.asset(
+///       'assets/apple-logo.svg',
+///       colorFilter: ColorFilter.mode(
+///         IconTheme.of(context).color!,
+///         BlendMode.srcIn,
+///       ),
+///     ),
+///   ),
+///   onPressed: () => _signInWithApple(),
+/// )
+/// ```
+class AppleSignInButton extends StatelessWidget {
+  /// Creates an [AppleSignInButton].
+  ///
+  /// [onPressed] is the tap handler; pass `null` to disable the button.
+  /// [icon] overrides the default Material glyph. `Icon` widgets are colored
+  /// automatically via [IconTheme]; non-`Icon` assets should read from
+  /// `IconTheme.of(context)` themselves (see class docs).
+  /// [label] overrides the default `'Continue with Apple'` text.
+  /// [iconBrightness] overrides the auto-detected background brightness.
+  const AppleSignInButton({
+    super.key,
+    required this.onPressed,
+    this.icon = const Icon(Icons.apple),
+    this.label = 'Continue with Apple',
+    this.iconBrightness,
+    this.style,
+    this.width = 300,
+  });
+
+  /// The Apple logo widget. Defaults to Material's `Icons.apple` glyph;
+  /// override for production (see class docs).
+  final Widget icon;
+
+  /// Tap handler. Pass `null` to disable the button.
+  final VoidCallback? onPressed;
+
+  /// The button text. Defaults to `'Continue with Apple'`.
+  final String label;
+
+  /// Overrides the auto-detected background brightness.
+  ///
+  /// Defaults to the ambient [Theme.of] brightness. Set explicitly when the
+  /// button sits on a background whose brightness differs from the
+  /// surrounding theme — for example, a dark hero banner inside a light app.
+  final AppleIconBrightness? iconBrightness;
+
+  /// Optional style override for the underlying button.
+  final ButtonStyle? style;
+
+  /// The button width. Defaults to `300`.
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness =
+        iconBrightness ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? AppleIconBrightness.dark
+            : AppleIconBrightness.light);
+    final iconColor = brightness == AppleIconBrightness.light
+        ? Colors.black
+        : Colors.white;
+    return SocialSignInButton(
+      label: label,
+      icon: IconTheme.merge(
+        data: IconThemeData(color: iconColor),
+        child: icon,
+      ),
+      onPressed: onPressed,
+      style: style,
+      width: width,
+    );
+  }
+}
+
+/// A convenience [SocialSignInButton] preconfigured for Microsoft Office 365
+/// sign-in.
+///
+/// Defaults [label] to `'Continue with Microsoft'` and [icon] to a Material
+/// Icons placeholder suitable for prototyping. **For production**, replace
+/// [icon] with the official four-square Microsoft mark from the
+/// [Microsoft identity branding guidelines](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-branding-in-apps).
+/// The official logo is a trademarked asset and cannot be bundled in an
+/// open-source package — obtain it directly from Microsoft.
+///
+/// ```dart
+/// MicrosoftSignInButton(
+///   icon: SvgPicture.asset('assets/microsoft-logo.svg', width: 18, height: 18),
+///   onPressed: () => _signInWithMicrosoft(),
+/// )
+/// ```
+class MicrosoftSignInButton extends StatelessWidget {
+  /// Creates a [MicrosoftSignInButton].
+  ///
+  /// [onPressed] is the tap handler; pass `null` to disable the button.
+  /// [icon] overrides the placeholder Material Icons glyph — replace with
+  /// the official Microsoft mark for production (see class docs).
+  /// [label] overrides the default `'Continue with Microsoft'` text.
+  const MicrosoftSignInButton({
+    super.key,
+    required this.onPressed,
+    this.icon = const Icon(Icons.window, size: 20),
+    this.label = 'Continue with Microsoft',
+    this.style,
+    this.width = 300,
+  });
+
+  /// The Microsoft logo widget. Defaults to a Material Icons placeholder
+  /// suitable for prototyping; replace with the official brand asset for
+  /// production (see class docs).
+  final Widget icon;
+
+  /// Tap handler. Pass `null` to disable the button.
+  final VoidCallback? onPressed;
+
+  /// The button text. Defaults to `'Continue with Microsoft'`.
+  final String label;
+
+  /// Optional style override for the underlying button.
+  final ButtonStyle? style;
+
+  /// The button width. Defaults to `300`.
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SocialSignInButton(
+      label: label,
+      icon: icon,
+      onPressed: onPressed,
+      style: style,
+      width: width,
     );
   }
 }
