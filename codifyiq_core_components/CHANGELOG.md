@@ -1,6 +1,13 @@
 # Changelog
 
 ## 0.7.0
+* New widget: `UserAvatar` — a circular avatar that renders a user's photo with graceful fallbacks
+  * Loads from `photoUrl` and falls back to initials derived from `displayName` (first+last for two-word names, first two characters for single-word names) or the username portion of `email`, and finally to a generic `Icons.person` glyph when no identifying info is available
+  * Pluggable caching via the optional `imageProviderBuilder` parameter — wire in `cached_network_image` or any other `ImageProvider` without the package taking on the dependency; defaults to `NetworkImage`
+  * Optional `headers` forwarded to the image provider for authenticated photo endpoints (e.g. `Authorization` bearer tokens)
+  * Theme-aware `backgroundColor` / `foregroundColor` overrides (default to `ColorScheme.secondary` / `onSecondary`) and a `fallback` slot for replacing the default initials/icon content
+  * Automatic recovery to the fallback when the photo fails to load at runtime
+  * Static `UserAvatar.initialsFor({displayName, email})` helper exposes the initials algorithm for mirroring elsewhere in consumer UI (menu headers, mentions, etc.)
 * New widgets: `GoogleSignInButton`, `AppleSignInButton`, and `MicrosoftSignInButton` — `SocialSignInButton` convenience wrappers preconfigured with provider-appropriate labels (`'Continue with Google'`, `'Continue with Apple'`, `'Continue with Microsoft'`) and Material Icons placeholder glyphs for `icon`, so they work out of the box for prototyping. Production consumers should override `icon` with the official brand asset (trademarked logos cannot be bundled in the published package); class dartdocs link directly to each provider's branding guidelines
 * `AppleSignInButton` enforces Apple's black-on-light / white-on-dark icon rule by wrapping the supplied `icon` in an `IconTheme` whose color is derived from the ambient theme brightness — plain `Icon` widgets pick it up automatically; non-`Icon` assets read from `IconTheme.of(context)`. New `AppleIconBrightness` enum lets the caller override the auto-detected brightness via `iconBrightness:` (e.g. for buttons placed on backgrounds that diverge from the surrounding theme)
 * New widget set: `NotificationBellButton`, `NotificationCenterPanel`, `NotificationCenterPage`, and `NotificationCenterController` — a Play Store-style notification center for tracking long-running, user-initiated tasks
