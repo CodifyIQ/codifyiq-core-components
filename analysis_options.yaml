@@ -1,0 +1,5 @@
+include: package:flutter_lints/flutter.yaml
+
+# Shared lint configuration for every package in the workspace.
+# Additional information about this file can be found at
+# https://dart.dev/guides/language/analysis-options

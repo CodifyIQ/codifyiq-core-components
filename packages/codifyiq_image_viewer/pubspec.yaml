@@ -1,0 +1,30 @@
+name: codifyiq_image_viewer
+description: A full-screen image viewer with swipe paging, pinch-to-zoom, and custom actions, powered by photo_view.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_image_viewer
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_image_viewer
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - image
+
+resolution: workspace
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  photo_view: ^0.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

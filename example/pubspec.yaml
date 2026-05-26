@@ -1,0 +1,44 @@
+name: codifyiq_components_example
+description: Example app demonstrating the CodifyIQ component packages.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # CodifyIQ component packages (resolved locally via the pub workspace).
+  codifyiq_ai_progress_indicator: ^1.0.0
+  codifyiq_audio_message: ^1.0.0
+  codifyiq_brightness_button: ^1.0.0
+  codifyiq_image_viewer: ^1.0.0
+  codifyiq_notification_center: ^1.0.0
+  codifyiq_pdf_viewer: ^1.0.0
+  codifyiq_social_sign_in: ^1.0.0
+  codifyiq_terms_and_conditions: ^1.0.0
+  codifyiq_user_avatar: ^1.0.0
+
+  # Example-only dependencies (not shipped by any published package).
+  adaptive_theme: ^3.7.0
+  go_router: ^17.1.0
+  flutter_chat_ui: ^2.11.0
+  flutter_chat_core: ^2.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # Provides an in-memory SharedPreferencesAsync for the boot smoke test
+  # (AdaptiveTheme reads prefs during initState).
+  shared_preferences_platform_interface: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

@@ -1,0 +1,30 @@
+name: codifyiq_brightness_button
+description: A Light, Dark, and System theme toggle button for Flutter, built on the AdaptiveTheme package.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_brightness_button
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_brightness_button
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - theme
+
+resolution: workspace
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  adaptive_theme: ^3.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

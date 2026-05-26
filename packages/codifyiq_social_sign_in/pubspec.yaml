@@ -1,0 +1,29 @@
+name: codifyiq_social_sign_in
+description: A presentational social sign-in screen with logo, tagline, pluggable provider buttons, and a reviewer-login easter egg.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_social_sign_in
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_social_sign_in
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - authentication
+
+resolution: workspace
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
