@@ -1,0 +1,30 @@
+name: codifyiq_ai_progress_indicator
+description: A subtle shimmer progress indicator for AI-enabled actions, with theme-derived colors and a configurable shimmer sweep.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_ai_progress_indicator
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_ai_progress_indicator
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - ai
+
+resolution: workspace
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

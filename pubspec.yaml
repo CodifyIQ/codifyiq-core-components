@@ -1,0 +1,32 @@
+name: codifyiq_components_workspace
+description: Dev-only workspace root for the CodifyIQ component packages. Not published.
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+
+# Native Dart pub workspace (Dart 3.6+). Each member sets `resolution: workspace`.
+workspace:
+  - packages/codifyiq_ai_progress_indicator
+  - packages/codifyiq_audio_message
+  - packages/codifyiq_brightness_button
+  - packages/codifyiq_image_viewer
+  - packages/codifyiq_notification_center
+  - packages/codifyiq_pdf_viewer
+  - packages/codifyiq_social_sign_in
+  - packages/codifyiq_terms_and_conditions
+  - packages/codifyiq_user_avatar
+  - example
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  repository: https://github.com/CodifyIQ/codifyiq-core-components
+  scripts:
+    analyze: flutter analyze
+    format: dart format --set-exit-if-changed .
+    test:
+      run: flutter test
+      packageFilters:
+        dirExists: test

@@ -1,0 +1,29 @@
+name: codifyiq_notification_center
+description: A Play Store-style notification bell and center for tracking long-running, user-initiated background tasks.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_notification_center
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_notification_center
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - notifications
+
+resolution: workspace
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
