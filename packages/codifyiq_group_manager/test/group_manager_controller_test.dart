@@ -1,0 +1,552 @@
+import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('GroupManagerController catalog', () {
+    test('seeds groups in insertion order', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+        ],
+      );
+      expect(controller.groups.map((g) => g.id), ['a', 'b']);
+      expect(controller.length, 2);
+      expect(controller.groupById('b')?.name, 'Beta');
+    });
+
+    test('addGroup appends and notifies', () {
+      final controller = GroupManagerController();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.addGroup(const Group(id: 'a', name: 'Alpha'));
+
+      expect(controller.groups.single.id, 'a');
+      expect(notifications, 1);
+    });
+
+    test('addGroup rejects duplicate ids', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      expect(
+        () => controller.addGroup(const Group(id: 'a', name: 'Again')),
+        throwsArgumentError,
+      );
+    });
+
+    test('updateGroup replaces in place and requires existence', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      controller.updateGroup(const Group(id: 'a', name: 'Alpha Prime'));
+      expect(controller.groupById('a')?.name, 'Alpha Prime');
+
+      expect(
+        () => controller.updateGroup(const Group(id: 'z', name: 'Nope')),
+        throwsArgumentError,
+      );
+    });
+
+    test('removeGroup cascades to assignments', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+        ],
+      );
+      controller.assign('user1', 'a');
+      controller.assign('user1', 'b');
+
+      controller.removeGroup('a');
+
+      expect(controller.groupById('a'), isNull);
+      expect(controller.groupsFor('user1'), {'b'});
+    });
+
+    test('removeGroup is a no-op for unknown id', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.removeGroup('missing');
+      expect(notifications, 0);
+    });
+  });
+
+  group('GroupManagerController assignments', () {
+    test('assign / isAssigned / unassign', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      expect(controller.isAssigned('u', 'a'), isFalse);
+
+      controller.assign('u', 'a');
+      expect(controller.isAssigned('u', 'a'), isTrue);
+      expect(controller.groupsFor('u'), {'a'});
+
+      controller.unassign('u', 'a');
+      expect(controller.isAssigned('u', 'a'), isFalse);
+      expect(controller.groupsFor('u'), isEmpty);
+    });
+
+    test('assign throws on unknown groups', () {
+      final controller = GroupManagerController();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      expect(() => controller.assign('u', 'ghost'), throwsArgumentError);
+      expect(controller.groupsFor('u'), isEmpty);
+      expect(notifications, 0);
+    });
+
+    test('duplicate assign does not notify twice', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.assign('u', 'a');
+      controller.assign('u', 'a');
+      expect(notifications, 1);
+    });
+
+    test('setAssignments filters unknown ids and clears when empty', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+        ],
+      );
+      controller.setAssignments('u', {'a', 'b', 'ghost'});
+      expect(controller.groupsFor('u'), {'a', 'b'});
+
+      controller.setAssignments('u', <String>{});
+      expect(controller.groupsFor('u'), isEmpty);
+    });
+
+    test('setAssignments is a no-op when unchanged', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      controller.assign('u', 'a');
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.setAssignments('u', {'a'});
+      expect(notifications, 0);
+    });
+
+    test('resolvedGroupsFor returns groups in catalog order', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+          Group(id: 'c', name: 'Gamma'),
+        ],
+      );
+      // Assigned out of catalog order…
+      controller.setAssignments('u', {'c', 'a'});
+      // …but resolved back in catalog order.
+      expect(controller.resolvedGroupsFor('u').map((g) => g.id), ['a', 'c']);
+    });
+
+    test('groupsFor returns an unmodifiable snapshot', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      controller.assign('u', 'a');
+      expect(() => controller.groupsFor('u').add('b'), throwsUnsupportedError);
+    });
+  });
+
+  group('Group model', () {
+    test('copyWith replaces and clears fields', () {
+      const group = Group(id: 'a', name: 'Alpha', description: 'desc');
+      expect(group.copyWith(name: 'Beta').name, 'Beta');
+      expect(group.copyWith(name: 'Beta').description, 'desc');
+      expect(group.copyWith(clearDescription: true).description, isNull);
+    });
+
+    test('equality is by value', () {
+      const a = Group(id: 'a', name: 'Alpha');
+      const b = Group(id: 'a', name: 'Alpha');
+      const c = Group(id: 'a', name: 'Different');
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('copyWith updates and clears the color role', () {
+      const group = Group(id: 'a', name: 'Alpha', color: GroupColor.primary);
+      expect(
+        group.copyWith(color: GroupColor.tertiary).color,
+        GroupColor.tertiary,
+      );
+      expect(group.copyWith(clearColor: true).color, isNull);
+    });
+  });
+
+  group('GroupColor', () {
+    test('auto is deterministic and never neutral', () {
+      // Stable for a given id across calls…
+      expect(GroupColor.auto('admins'), GroupColor.auto('admins'));
+      // …and only ever a colorful role, never the muted neutral.
+      for (final id in ['admins', 'editors', 'viewers', 'x', 'team-42']) {
+        expect(GroupColor.auto(id), isNot(GroupColor.neutral));
+      }
+    });
+
+    test('resolve returns the matching on-color for contrast', () {
+      final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF033B53));
+      final primary = GroupColor.primary.resolve(scheme);
+      expect(primary.background, scheme.primaryContainer);
+      expect(primary.foreground, scheme.onPrimaryContainer);
+
+      final neutral = GroupColor.neutral.resolve(scheme);
+      expect(neutral.background, scheme.surfaceContainerHighest);
+      expect(neutral.foreground, scheme.onSurfaceVariant);
+    });
+  });
+
+  group('GroupListView', () {
+    testWidgets('row menu opens and deletes through the confirm dialog', (
+      tester,
+    ) async {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GroupListView(controller: controller)),
+        ),
+      );
+
+      // Opening the overflow menu must not throw — a ListTile inside a
+      // PopupMenuItem crashes under IntrinsicWidth; MenuAnchor does not.
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      // Confirm dialog → commit the deletion.
+      expect(find.text('Delete "Alpha"?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(controller.isEmpty, isTrue);
+    });
+
+    testWidgets('onDelete fires with the group after it is removed', (
+      tester,
+    ) async {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      addTearDown(controller.dispose);
+      Group? deleted;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupListView(
+              controller: controller,
+              onDelete: (g) => deleted = g,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      // The confirmation still ran, the controller applied the removal, and the
+      // callback fired with the deleted group.
+      expect(controller.isEmpty, isTrue);
+      expect(deleted?.id, 'a');
+    });
+
+    testWidgets('onEdit fires with the updated group after it is applied', (
+      tester,
+    ) async {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      addTearDown(controller.dispose);
+      Group? edited;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupListView(
+              controller: controller,
+              onEdit: (g) => edited = g,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Alpha Prime');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(controller.groupById('a')?.name, 'Alpha Prime');
+      expect(edited?.name, 'Alpha Prime');
+    });
+  });
+
+  group('GroupEditorDialog', () {
+    testWidgets('blocks save on an empty name, then returns a new group', (
+      tester,
+    ) async {
+      Group? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async =>
+                    result = await GroupEditorDialog.show(context),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // Empty name fails validation and keeps the dialog open.
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      expect(find.text('Name is required'), findsOneWidget);
+      expect(find.byType(GroupEditorDialog), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'Admins');
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.name, 'Admins');
+      expect(result!.id, startsWith('group-'));
+    });
+
+    testWidgets('edit mode pre-fills and preserves the id', (tester) async {
+      Group? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async => result = await GroupEditorDialog.show(
+                  context,
+                  initial: const Group(id: 'admins', name: 'Administrators'),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit group'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'Admins Renamed');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(result!.id, 'admins');
+      expect(result!.name, 'Admins Renamed');
+    });
+  });
+
+  group('GroupPicker', () {
+    testWidgets('searches description and returns the selected ids', (
+      tester,
+    ) async {
+      Set<String>? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async => result = await GroupPicker.show(
+                  context,
+                  groups: const [
+                    Group(id: 'a', name: 'Alpha', description: 'finance team'),
+                    Group(id: 'b', name: 'Beta', description: 'design team'),
+                  ],
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // A term only present in a description still finds the group.
+      await tester.enterText(find.byType(SearchBar), 'finance');
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsNothing);
+
+      await tester.tap(find.text('Alpha'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Done (1)'));
+      await tester.pumpAndSettle();
+
+      expect(result, {'a'});
+    });
+  });
+
+  group('GroupAssignmentField', () {
+    testWidgets('removes a chip and reports the new selection', (tester) async {
+      Set<String>? changed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupAssignmentField(
+              groups: const [
+                Group(id: 'a', name: 'Alpha'),
+                Group(id: 'b', name: 'Beta'),
+              ],
+              selected: const {'a', 'b'},
+              onChanged: (ids) => changed = ids,
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(InputChip), findsNWidgets(2));
+
+      await tester.tap(find.byTooltip('Remove Alpha'));
+      await tester.pumpAndSettle();
+      expect(changed, {'b'});
+    });
+
+    testWidgets('disabled field hides the edit button and shows the hint', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: GroupAssignmentField(
+              groups: [Group(id: 'a', name: 'Alpha')],
+              selected: <String>{},
+              onChanged: _noop,
+              enabled: false,
+              emptyHint: 'Nothing here',
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Nothing here'), findsOneWidget);
+      expect(find.byTooltip('Edit groups'), findsNothing);
+    });
+
+    testWidgets('header button opens the picker and reports the selection', (
+      tester,
+    ) async {
+      Set<String>? changed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupAssignmentField(
+              groups: const [
+                Group(id: 'a', name: 'Alpha'),
+                Group(id: 'b', name: 'Beta'),
+              ],
+              selected: const <String>{},
+              onChanged: (ids) => changed = ids,
+              editLabel: 'Edit groups',
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Edit groups'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Beta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Done (1)'));
+      await tester.pumpAndSettle();
+
+      expect(changed, {'b'});
+    });
+  });
+
+  group('GroupManagerView', () {
+    testWidgets('swaps the create button for a search bar once populated', (
+      tester,
+    ) async {
+      final controller = GroupManagerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GroupManagerView(controller: controller)),
+        ),
+      );
+
+      // Empty catalog: standalone create button, no search bar.
+      expect(find.byType(SearchBar), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'New group'), findsOneWidget);
+
+      controller.addGroup(const Group(id: 'a', name: 'Alpha'));
+      await tester.pumpAndSettle();
+
+      // Populated: the search bar appears and hosts the create action.
+      expect(find.byType(SearchBar), findsOneWidget);
+      expect(find.text('Alpha'), findsOneWidget);
+    });
+
+    testWidgets('onCreate fires with the group after it is added', (
+      tester,
+    ) async {
+      final controller = GroupManagerController();
+      addTearDown(controller.dispose);
+      Group? created;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupManagerView(
+              controller: controller,
+              onCreate: (g) => created = g,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'New group'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'Admins');
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      // The dialog ran, the controller has the new group, and the callback
+      // fired with it.
+      expect(controller.groups.single.name, 'Admins');
+      expect(created?.name, 'Admins');
+    });
+  });
+}
+
+void _noop(Set<String> _) {}

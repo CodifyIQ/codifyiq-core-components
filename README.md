@@ -24,6 +24,7 @@ but publish independently. **Depend on a widget and you get its dependencies; no
 | [codifyiq_ai_progress_indicator](packages/codifyiq_ai_progress_indicator) | [![pub](https://img.shields.io/pub/v/codifyiq_ai_progress_indicator.svg)](https://pub.dev/packages/codifyiq_ai_progress_indicator) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_audio_message](packages/codifyiq_audio_message) | [![pub](https://img.shields.io/pub/v/codifyiq_audio_message.svg)](https://pub.dev/packages/codifyiq_audio_message) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_brightness_button](packages/codifyiq_brightness_button) | [![pub](https://img.shields.io/pub/v/codifyiq_brightness_button.svg)](https://pub.dev/packages/codifyiq_brightness_button) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| [codifyiq_group_manager](packages/codifyiq_group_manager) | [![pub](https://img.shields.io/pub/v/codifyiq_group_manager.svg)](https://pub.dev/packages/codifyiq_group_manager) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_image_viewer](packages/codifyiq_image_viewer) | [![pub](https://img.shields.io/pub/v/codifyiq_image_viewer.svg)](https://pub.dev/packages/codifyiq_image_viewer) | ✔ | ✔ | ✔ ¹ | ✔ | ✔ |
 | [codifyiq_notification_center](packages/codifyiq_notification_center) | [![pub](https://img.shields.io/pub/v/codifyiq_notification_center.svg)](https://pub.dev/packages/codifyiq_notification_center) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_pdf_viewer](packages/codifyiq_pdf_viewer) | [![pub](https://img.shields.io/pub/v/codifyiq_pdf_viewer.svg)](https://pub.dev/packages/codifyiq_pdf_viewer) | ✔ | ✔ | ✔ ² | ✔ | ✔ |

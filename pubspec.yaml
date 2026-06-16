@@ -10,6 +10,7 @@ workspace:
   - packages/codifyiq_ai_progress_indicator
   - packages/codifyiq_audio_message
   - packages/codifyiq_brightness_button
+  - packages/codifyiq_group_manager
   - packages/codifyiq_image_viewer
   - packages/codifyiq_notification_center
   - packages/codifyiq_pdf_viewer
