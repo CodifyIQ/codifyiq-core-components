@@ -126,7 +126,8 @@ class _GroupManagerViewState extends State<GroupManagerView> {
   @override
   Widget build(BuildContext context) {
     // listen: false — the ListenableBuilder below already drives rebuilds.
-    final ctrl = widget.controller ?? GroupManagerScope.of(context, listen: false);
+    final ctrl =
+        widget.controller ?? GroupManagerScope.of(context, listen: false);
     final maxWidth = widget.maxContentWidth;
     final content = Padding(
       padding: widget.padding,

@@ -366,7 +366,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Edit group'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextFormField).first, 'Admins Renamed');
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'Admins Renamed',
+      );
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
 
