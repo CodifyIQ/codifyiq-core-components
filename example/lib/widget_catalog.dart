@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';
+import 'group_manager_example.dart';
 import 'image_viewer_widget_example.dart';
 import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
@@ -58,6 +59,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Chat-style audio message player with play/pause, progress, and duration',
       'route': AudioMessageExample(),
+    },
+    {
+      'name': 'Group Manager',
+      'description':
+          'Manage authorization groups and assign one or more to each user',
+      'route': GroupManagerExample(),
     },
   ];
 

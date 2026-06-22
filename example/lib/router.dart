@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';
+import 'group_manager_example.dart';
 import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
 import 'image_viewer_widget_example.dart';
@@ -81,6 +82,12 @@ ShellRoute _getMainApplicationShellRoute() {
         path: "/audio-message",
         builder: (BuildContext context, GoRouterState state) {
           return const AudioMessageExample();
+        },
+      ),
+      GoRoute(
+        path: "/group-manager",
+        builder: (BuildContext context, GoRouterState state) {
+          return const GroupManagerExample();
         },
       ),
     ],
