@@ -17,6 +17,11 @@ import 'group_manager_controller.dart';
 /// the resulting group so you can persist the change to a backend (rolling back
 /// via the controller on failure). Provide [onTap] to make rows selectable —
 /// e.g. to reveal a group's members elsewhere in your UI.
+///
+/// Groups whose ids are in [lockedIds] are protected: their row offers no
+/// Delete action, so a permanent group (e.g. "Administrators") can't be removed
+/// from the catalog. Editing such a group is still allowed — changing its name
+/// or color doesn't break the invariant that the group keeps existing.
 class GroupListView extends StatelessWidget {
   /// Creates a [GroupListView].
   const GroupListView({
@@ -26,11 +31,13 @@ class GroupListView extends StatelessWidget {
     this.onTap,
     this.onEdit,
     this.onDelete,
+    this.lockedIds = const <String>{},
     this.showActions = true,
     this.padding = const EdgeInsets.symmetric(vertical: 8),
     this.shrinkWrap = false,
     this.physics,
     this.emptyState,
+    this.footer,
   });
 
   /// The controller to render. When `null`, the nearest [GroupManagerScope] is
@@ -56,6 +63,18 @@ class GroupListView extends StatelessWidget {
   /// deletion to a backend.
   final ValueChanged<Group>? onDelete;
 
+  /// Ids of groups that are protected from deletion. Their row carries a lock
+  /// badge (tooltip: "Locked — can't be deleted") and its menu omits the Delete
+  /// action; they remain editable.
+  ///
+  /// This protection is presentational: it withholds the affordance, but the
+  /// controller is not guarded — [GroupManagerController.removeGroup] still
+  /// deletes a locked group if called directly, and a custom row menu built
+  /// with `showActions: false` enforces nothing. Mirrors how `lockedIds` works
+  /// in [GroupAssignmentField] and [GroupPicker], where it shapes the UI rather
+  /// than the underlying state.
+  final Set<String> lockedIds;
+
   /// Whether to show the per-row edit/delete menu.
   final bool showActions;
 
@@ -70,6 +89,16 @@ class GroupListView extends StatelessWidget {
 
   /// Widget shown when the catalog is empty. Defaults to a centered hint.
   final Widget? emptyState;
+
+  /// Optional widget rendered as the final scrolling item, after the last
+  /// group — e.g. a help or policy note. Scrolls with the list rather than
+  /// pinning to the viewport.
+  ///
+  /// Shown only when groups are listed. It is deliberately suppressed in the
+  /// empty and no-matches states, which already own the viewport with their own
+  /// messaging — appending a trailing note beneath "No groups match …" would
+  /// read as orphaned. Put copy that must always be visible outside the list.
+  final Widget? footer;
 
   GroupManagerController _resolve(BuildContext context) =>
       controller ?? GroupManagerScope.of(context, listen: false);
@@ -141,13 +170,17 @@ class GroupListView extends StatelessWidget {
         if (groups.isEmpty) {
           return _NoMatches(query: query.trim());
         }
+        final hasFooter = footer != null;
         return ListView.builder(
           padding: padding,
           shrinkWrap: shrinkWrap,
           physics: physics,
-          itemCount: groups.length,
+          itemCount: groups.length + (hasFooter ? 1 : 0),
           itemBuilder: (context, index) {
+            // The footer trails the rows as the final scrolling item.
+            if (hasFooter && index == groups.length) return footer;
             final group = groups[index];
+            final locked = lockedIds.contains(group.id);
             return ListTile(
               leading: GroupAvatar(group: group),
               title: Text(group.name),
@@ -160,9 +193,32 @@ class GroupListView extends StatelessWidget {
                     ),
               onTap: onTap == null ? null : () => onTap!(group),
               trailing: showActions
-                  ? _RowMenu(
-                      onEdit: () => _handleEdit(context, group),
-                      onDelete: () => _handleDelete(context, group),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // A lock badge explains the missing Delete action so its
+                        // absence doesn't read as a bug. The metaphor matches
+                        // the locked tooltip used by GroupAssignmentField and
+                        // GroupPicker; the wording parallels it for the catalog's
+                        // delete (rather than remove) action.
+                        if (locked)
+                          Tooltip(
+                            message: "Locked — can't be deleted",
+                            child: Icon(
+                              Icons.lock_outline,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        _RowMenu(
+                          onEdit: () => _handleEdit(context, group),
+                          // A locked group is protected from deletion: withhold
+                          // the Delete action entirely rather than disabling it.
+                          onDelete: locked
+                              ? null
+                              : () => _handleDelete(context, group),
+                        ),
+                      ],
                     )
                   : null,
             );
@@ -174,10 +230,12 @@ class GroupListView extends StatelessWidget {
 }
 
 class _RowMenu extends StatelessWidget {
-  const _RowMenu({required this.onEdit, required this.onDelete});
+  const _RowMenu({required this.onEdit, this.onDelete});
 
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
+
+  /// Deletes the group, or `null` for a locked group, which omits the action.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -197,11 +255,12 @@ class _RowMenu extends StatelessWidget {
           onPressed: onEdit,
           child: const Text('Edit'),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
-          onPressed: onDelete,
-          child: const Text('Delete'),
-        ),
+        if (onDelete != null)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.delete_outline),
+            onPressed: onDelete,
+            child: const Text('Delete'),
+          ),
       ],
     );
   }

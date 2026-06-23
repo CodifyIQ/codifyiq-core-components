@@ -18,6 +18,15 @@ import 'group_picker.dart';
 /// it doesn't drift as chips are added or removed. Removing a chip or confirming
 /// the picker reports the new selection through [onChanged].
 ///
+/// Groups whose ids are in [lockedIds] always appear as non-removable chips
+/// bearing a trailing lock glyph in place of the delete icon — even when they
+/// are absent from [selected] — and are shown checked-and-disabled in the
+/// picker. Every selection this field reports
+/// through [onChanged], whether from the picker or from removing another chip,
+/// includes [lockedIds], so a locked group can never be dropped. The field does
+/// not mutate the caller-owned [selected]; if you persist that value, seed it
+/// with the locked ids (or apply each [onChanged] update) to keep it in sync.
+///
 /// Only [selected] ids that are present in [groups] are rendered — the widget
 /// has no [Group] data for ids outside the offered set, so it can neither show
 /// nor remove them. When you scope [groups] to a subset (e.g. only the signed-in
@@ -59,6 +68,7 @@ class GroupAssignmentField extends StatelessWidget {
     required this.groups,
     required this.selected,
     required this.onChanged,
+    this.lockedIds = const <String>{},
     this.label,
     this.enabled = true,
     this.editLabel = 'Edit groups',
@@ -76,6 +86,10 @@ class GroupAssignmentField extends StatelessWidget {
 
   /// Called with the updated id set whenever the assignment changes.
   final ValueChanged<Set<String>> onChanged;
+
+  /// Ids of groups that cannot be removed. These appear as non-removable chips
+  /// and are checked-but-disabled in the picker.
+  final Set<String> lockedIds;
 
   /// Optional label rendered above the chips.
   final String? label;
@@ -101,9 +115,13 @@ class GroupAssignmentField extends StatelessWidget {
   /// the header's edit button remains available to add the first group.
   final String emptyHint;
 
+  /// The groups to render as chips: everything in [selected], plus any
+  /// [lockedIds] not already selected, so a locked group is always shown even
+  /// when the caller hasn't seeded it into [selected]. Mirrors the picker,
+  /// which always folds [lockedIds] back into its result.
   List<Group> get _selectedGroups => <Group>[
     for (final group in groups)
-      if (selected.contains(group.id)) group,
+      if (selected.contains(group.id) || lockedIds.contains(group.id)) group,
   ];
 
   Future<void> _openPicker(BuildContext context) async {
@@ -111,13 +129,17 @@ class GroupAssignmentField extends StatelessWidget {
       context,
       groups: groups,
       initiallySelected: selected,
+      lockedIds: lockedIds,
       title: pickerTitle,
     );
     if (result != null) onChanged(result);
   }
 
   void _remove(String id) {
-    onChanged(<String>{...selected}..remove(id));
+    // Fold lockedIds back in so removing a chip can never drop a locked group,
+    // matching the picker. id is always an unlocked group (locked chips have no
+    // delete affordance), so the union never re-adds the id being removed.
+    onChanged(<String>{...selected, ...lockedIds}..remove(id));
   }
 
   @override
@@ -169,10 +191,13 @@ class GroupAssignmentField extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               for (final group in selectedGroups)
-                GroupChip(
-                  group: group,
-                  onDeleted: enabled ? () => _remove(group.id) : null,
-                ),
+                if (lockedIds.contains(group.id))
+                  GroupChip(group: group, locked: true)
+                else
+                  GroupChip(
+                    group: group,
+                    onDeleted: enabled ? () => _remove(group.id) : null,
+                  ),
             ],
           ),
       ],

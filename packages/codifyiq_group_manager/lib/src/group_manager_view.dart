@@ -53,10 +53,12 @@ class GroupManagerView extends StatefulWidget {
     this.onCreate,
     this.onEdit,
     this.onDelete,
+    this.lockedIds = const <String>{},
     this.searchable = true,
     this.padding = const EdgeInsets.all(16),
     this.maxContentWidth = 840,
     this.createButtonLabel = 'New group',
+    this.footer,
   });
 
   /// The controller to manage. When `null`, the nearest [GroupManagerScope] is
@@ -79,6 +81,13 @@ class GroupManagerView extends StatefulWidget {
   /// to [GroupListView.onDelete]. Use it to persist the deletion to a backend.
   final ValueChanged<Group>? onDelete;
 
+  /// Ids of groups that are protected from deletion, forwarded to
+  /// [GroupListView.lockedIds]. Their rows offer no Delete action — use it to
+  /// keep a permanent group (e.g. "Administrators") in the catalog. Such groups
+  /// remain editable. The protection is presentational only; see
+  /// [GroupListView.lockedIds] for the boundary.
+  final Set<String> lockedIds;
+
   /// Whether to show the search field once the catalog has groups.
   final bool searchable;
 
@@ -96,6 +105,13 @@ class GroupManagerView extends StatefulWidget {
 
   /// Label for the create action.
   final String createButtonLabel;
+
+  /// Optional widget rendered as the final scrolling item beneath the last
+  /// group, forwarded to [GroupListView.footer] — e.g. a help or policy note.
+  /// It scrolls with the catalog and shares its centered, padded measure. Shown
+  /// only when groups are listed; see [GroupListView.footer] for the empty and
+  /// no-matches behavior.
+  final Widget? footer;
 
   @override
   State<GroupManagerView> createState() => _GroupManagerViewState();
@@ -193,6 +209,8 @@ class _GroupManagerViewState extends State<GroupManagerView> {
                   onTap: widget.onTap,
                   onEdit: widget.onEdit,
                   onDelete: widget.onDelete,
+                  lockedIds: widget.lockedIds,
+                  footer: widget.footer,
                 ),
               ),
             ],

@@ -9,6 +9,10 @@ import 'group_avatar.dart';
 /// [initiallySelected] ids, and resolves with the updated selection when the
 /// user confirms — or `null` if they dismiss it. It performs no persistence.
 ///
+/// Groups whose ids are in [lockedIds] appear checked and disabled, with a lock
+/// glyph beside the name (tooltip: "Required — can't be removed") — the user
+/// cannot uncheck them. They are always included in the resolved selection.
+///
 /// [show] presents the picker **adaptively**, following Material 3's
 /// large-screen guidance: a modal bottom sheet on compact widths (the M3 mobile
 /// pattern for a long, icon-and-description list) and a centered dialog at
@@ -24,6 +28,7 @@ class GroupPicker extends StatefulWidget {
     super.key,
     required this.groups,
     this.initiallySelected = const <String>{},
+    this.lockedIds = const <String>{},
     this.title = 'Select groups',
   });
 
@@ -32,6 +37,9 @@ class GroupPicker extends StatefulWidget {
 
   /// Ids selected when the picker opens.
   final Set<String> initiallySelected;
+
+  /// Ids that are always checked and cannot be unchecked.
+  final Set<String> lockedIds;
 
   /// Heading shown at the top of the picker.
   final String title;
@@ -49,6 +57,7 @@ class GroupPicker extends StatefulWidget {
     BuildContext context, {
     required List<Group> groups,
     Set<String> initiallySelected = const <String>{},
+    Set<String> lockedIds = const <String>{},
     String title = 'Select groups',
   }) {
     final media = MediaQuery.of(context);
@@ -59,6 +68,7 @@ class GroupPicker extends StatefulWidget {
     final picker = GroupPicker(
       groups: groups,
       initiallySelected: initiallySelected,
+      lockedIds: lockedIds,
       title: title,
     );
 
@@ -121,6 +131,9 @@ class _GroupPickerState extends State<GroupPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final filtered = _filtered;
+    // The picker always folds lockedIds back into its result, so count and
+    // return against that union rather than the user-toggled set alone.
+    final resolved = <String>{..._selected, ...widget.lockedIds};
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -178,11 +191,30 @@ class _GroupPickerState extends State<GroupPicker> {
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     final group = filtered[index];
-                    final checked = _selected.contains(group.id);
-                    return CheckboxListTile(
+                    final isLocked = widget.lockedIds.contains(group.id);
+                    final checked =
+                        isLocked || _selected.contains(group.id);
+                    final tile = CheckboxListTile(
                       value: checked,
+                      enabled: !isLocked,
                       secondary: GroupAvatar(group: group),
-                      title: Text(group.name),
+                      // A lock glyph beside the name marks the row as permanent,
+                      // matching the locked chip and catalog cue — so the
+                      // disabled checkbox doesn't read as merely unavailable.
+                      title: isLocked
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: Text(group.name)),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 16,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            )
+                          : Text(group.name),
                       subtitle: group.description == null
                           ? null
                           : Text(
@@ -190,14 +222,22 @@ class _GroupPickerState extends State<GroupPicker> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                      onChanged: (value) => setState(() {
-                        if (value ?? false) {
-                          _selected.add(group.id);
-                        } else {
-                          _selected.remove(group.id);
-                        }
-                      }),
+                      onChanged: isLocked
+                          ? null
+                          : (value) => setState(() {
+                              if (value ?? false) {
+                                _selected.add(group.id);
+                              } else {
+                                _selected.remove(group.id);
+                              }
+                            }),
                     );
+                    return isLocked
+                        ? Tooltip(
+                            message: 'Required — can\'t be removed',
+                            child: tile,
+                          )
+                        : tile;
                   },
                 ),
         ),
@@ -212,8 +252,8 @@ class _GroupPickerState extends State<GroupPicker> {
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: () => Navigator.of(context).pop(_selected),
-                child: Text('Done (${_selected.length})'),
+                onPressed: () => Navigator.of(context).pop(resolved),
+                child: Text('Done (${resolved.length})'),
               ),
             ],
           ),
