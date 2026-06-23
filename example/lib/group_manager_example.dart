@@ -8,7 +8,11 @@ import 'package:flutter/material.dart';
 /// second assigns one or more of those groups to a handful of demo users via
 /// removable chips and a searchable picker. The third shows the same field
 /// attaching groups to a *non-user* target — folders — where the choices are
-/// scoped to only the groups the signed-in user belongs to. All three tabs are
+/// scoped to only the groups the signed-in user belongs to, and the
+/// "Administrators" group is locked so admins always retain access to every
+/// folder and cannot be removed. The same lock protects "Administrators" in the
+/// catalog tab, where it offers no Delete action — so the permanent group the
+/// folders rely on can't be deleted out from under them. All three tabs are
 /// driven by a single UI-only controller — edits on one are reflected on the
 /// others.
 class GroupManagerExample extends StatefulWidget {
@@ -54,8 +58,19 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
     assignments: {
       'ada': {'admins', 'editors'},
       'grace': {'editors'},
+      // Pre-share a couple of folders so the locked "Administrators" chip sits
+      // next to a removable "Editors" chip — making the contrast between the
+      // two obvious. "Contracts" is left unshared to show a folder with only
+      // the locked chip.
+      'folder:reports': {'editors'},
+      'folder:designs': {'editors'},
     },
   );
+
+  /// Permanent groups: locked on every folder (always have access, can't be
+  /// unshared) and protected in the catalog (no Delete action), so the group
+  /// the folders depend on can't be deleted.
+  static const Set<String> _lockedGroups = {'admins'};
 
   static const List<({String id, String name})> _users = [
     (id: 'ada', name: 'Ada Lovelace'),
@@ -86,10 +101,47 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
         ),
         body: TabBarView(
           children: [
-            GroupManagerView(controller: _controller),
+            _GroupsTab(controller: _controller, lockedGroups: _lockedGroups),
             _MembersTab(controller: _controller, users: _users),
-            _FoldersTab(controller: _controller, currentUserId: 'ada'),
+            _FoldersTab(
+              controller: _controller,
+              currentUserId: 'ada',
+              lockedGroups: _lockedGroups,
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The catalog tab: a drop-in [GroupManagerView] plus a footer note explaining
+/// why "Administrators" has no delete action.
+class _GroupsTab extends StatelessWidget {
+  const _GroupsTab({required this.controller, required this.lockedGroups});
+
+  final GroupManagerController controller;
+  final Set<String> lockedGroups;
+
+  @override
+  Widget build(BuildContext context) {
+    // The note rides along as the catalog's footer, so it sits directly under
+    // the last group and scrolls with the list rather than pinning to the
+    // bottom of the pane.
+    return GroupManagerView(
+      controller: controller,
+      lockedIds: lockedGroups,
+      footer: const Padding(
+        padding: EdgeInsets.only(top: 12),
+        child: _LockedGroupsNote(
+          '"Administrators" is locked, so its row offers no delete — the '
+          'permanent group your assignments depend on can\'t be removed from '
+          'the catalog (it stays editable). Every other group can be deleted. '
+          'This demo hard-codes that single locked group, but which groups are '
+          'locked, and how that set is derived, is entirely up to your app — a '
+          "constant, the signed-in user's role, a per-resource policy, whatever "
+          'fits. The widget takes a `lockedIds` set and withholds the delete '
+          'action; it does not decide what is locked.',
         ),
       ),
     );
@@ -209,11 +261,22 @@ class _MembersTabState extends State<_MembersTab> {
 /// object: each folder is keyed by `'folder:<id>'` in the same controller, and
 /// the offered groups are scoped to only those the signed-in user belongs to —
 /// you can share a folder with your own groups, but not ones you lack.
+///
+/// Administrators are locked on every folder: they always have access and the
+/// chip can't be removed — the canonical "this group always has access to every
+/// resource" case.
 class _FoldersTab extends StatelessWidget {
-  const _FoldersTab({required this.controller, required this.currentUserId});
+  const _FoldersTab({
+    required this.controller,
+    required this.currentUserId,
+    required this.lockedGroups,
+  });
 
   final GroupManagerController controller;
   final String currentUserId;
+
+  /// Groups that always have access to every folder, regardless of sharing.
+  final Set<String> lockedGroups;
 
   static const List<({String id, String name, IconData icon})> _folders = [
     (id: 'reports', name: 'Quarterly Reports', icon: Icons.folder_outlined),
@@ -229,12 +292,16 @@ class _FoldersTab extends StatelessWidget {
     final shared = controller.groupsFor('folder:${folder.id}');
     final grantableIds = grantable.map((g) => g.id).toSet();
     // Offer what the signer can grant, plus anything already shared with this
-    // folder, so an existing share stays visible and removable even if they
-    // later leave that group. Without this the assignment would orphan: gone
-    // from both the chips and the picker, yet still in the data.
+    // folder, plus the always-shared groups so their locked chips render even
+    // if the signer can't otherwise grant them. Without the first two an
+    // existing share would orphan: gone from both the chips and the picker, yet
+    // still in the data.
     final offered = <Group>[
       for (final group in controller.groups)
-        if (grantableIds.contains(group.id) || shared.contains(group.id)) group,
+        if (grantableIds.contains(group.id) ||
+            shared.contains(group.id) ||
+            lockedGroups.contains(group.id))
+          group,
     ];
 
     return Card(
@@ -244,6 +311,7 @@ class _FoldersTab extends StatelessWidget {
           label: folder.name,
           groups: offered,
           selected: shared,
+          lockedIds: lockedGroups,
           onChanged: (ids) =>
               controller.setAssignments('folder:${folder.id}', ids),
           // Granting a folder access — the default group-add glyph fits, but
@@ -300,11 +368,55 @@ class _FoldersTab extends StatelessWidget {
                   _folderCard(context, folder, grantable),
                   const SizedBox(height: 12),
                 ],
+                const SizedBox(height: 4),
+                const _LockedGroupsNote(
+                  'Above, "Administrators" is locked: its chip has no remove '
+                  'affordance here (and its catalog row offers no delete), so '
+                  'admins keep access to every folder. The other chips are '
+                  'removable. This demo hard-codes that single locked group, but '
+                  'which groups are locked, and how that set is derived, is '
+                  "entirely up to your app — a constant, the signed-in user's "
+                  'role, a per-resource policy, whatever fits. The widgets take '
+                  'a `lockedIds` set and render the result; they do not decide '
+                  'what is locked.',
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// A low-emphasis footer note explaining that locking is an app decision, not a
+/// widget feature — shared by the catalog and folders tabs.
+class _LockedGroupsNote extends StatelessWidget {
+  const _LockedGroupsNote(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.lock_outline,
+          size: 16,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
