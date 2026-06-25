@@ -207,7 +207,9 @@ class GroupListView extends StatelessWidget {
                             child: Icon(
                               Icons.lock_outline,
                               size: 18,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         _RowMenu(

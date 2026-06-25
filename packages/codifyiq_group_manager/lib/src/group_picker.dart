@@ -192,8 +192,7 @@ class _GroupPickerState extends State<GroupPicker> {
                   itemBuilder: (context, index) {
                     final group = filtered[index];
                     final isLocked = widget.lockedIds.contains(group.id);
-                    final checked =
-                        isLocked || _selected.contains(group.id);
+                    final checked = isLocked || _selected.contains(group.id);
                     final tile = CheckboxListTile(
                       value: checked,
                       enabled: !isLocked,
