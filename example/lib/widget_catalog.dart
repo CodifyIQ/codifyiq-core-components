@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:flutter/material.dart';
 
 import 'ai_progress_indicator_example.dart';
@@ -70,23 +71,30 @@ class WidgetCatalog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 480,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          mainAxisExtent: 80,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Material Design Widget Catalog'),
+        centerTitle: true,
+        actions: const [BrightnessButton()],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 480,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            mainAxisExtent: 80,
+          ),
+          itemCount: widgetList.length,
+          itemBuilder: (context, index) {
+            return WidgetCard(
+              name: widgetList[index]['name'],
+              description: widgetList[index]['description'],
+              route: widgetList[index]['route'],
+            );
+          },
         ),
-        itemCount: widgetList.length,
-        itemBuilder: (context, index) {
-          return WidgetCard(
-            name: widgetList[index]['name'],
-            description: widgetList[index]['description'],
-            route: widgetList[index]['route'],
-          );
-        },
       ),
     );
   }

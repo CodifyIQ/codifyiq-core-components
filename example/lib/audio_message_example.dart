@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:codifyiq_audio_message/codifyiq_audio_message.dart';
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -89,7 +90,10 @@ class _AudioMessageExampleState extends State<AudioMessageExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Audio Message')),
+      appBar: AppBar(
+        title: const Text('Audio Message'),
+        actions: const [BrightnessButton()],
+      ),
       body: Chat(
         currentUserId: _meId,
         resolveUser: _resolveUser,

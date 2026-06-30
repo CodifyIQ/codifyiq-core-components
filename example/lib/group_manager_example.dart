@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
 import 'package:flutter/material.dart';
 
@@ -91,6 +92,7 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Group Manager Example'),
+          actions: const [BrightnessButton()],
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Groups'),

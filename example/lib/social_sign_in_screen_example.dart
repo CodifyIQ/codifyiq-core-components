@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_social_sign_in/codifyiq_social_sign_in.dart';
 import 'package:flutter/material.dart';
 
@@ -105,6 +106,7 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
               ),
             ],
           ),
+          const BrightnessButton(),
         ],
       ),
       logo: const FlutterLogo(size: 120),

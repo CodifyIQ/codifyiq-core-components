@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_pdf_viewer/codifyiq_pdf_viewer.dart';
 import 'package:flutter/material.dart';
 
@@ -40,6 +41,7 @@ class _PdfViewerWidgetExampleState extends State<PdfViewerWidgetExample> {
             onChanged: (value) => setState(() => _enableSearch = value),
           ),
           const SizedBox(width: 8),
+          const BrightnessButton(),
         ],
       ),
       body: PdfViewerWidget(

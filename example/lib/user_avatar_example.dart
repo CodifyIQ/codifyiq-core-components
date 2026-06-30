@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
 import 'package:flutter/material.dart';
 
@@ -64,7 +65,10 @@ class UserAvatarExample extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('User Avatar Example')),
+      appBar: AppBar(
+        title: const Text('User Avatar Example'),
+        actions: const [BrightnessButton()],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

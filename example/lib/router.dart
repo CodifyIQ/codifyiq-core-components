@@ -1,5 +1,4 @@
 // The GoRouter configuration for the application.
-import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,78 +17,67 @@ const String homePath = '/home';
 
 ///
 /// This router handles navigation and authentication checks.
+///
+/// Each screen owns its own [Scaffold] and [AppBar] — the catalog home
+/// supplies the app bar for the grid, and every example supplies its own
+/// (with a back button and any per-screen actions). There is no shared
+/// shell chrome, so drilling into an example never stacks two app bars.
 final GoRouter router = GoRouter(
   initialLocation: homePath,
-  routes: <RouteBase>[_getMainApplicationShellRoute()],
+  routes: <RouteBase>[
+    GoRoute(
+      path: homePath,
+      builder: (BuildContext context, GoRouterState state) {
+        return const WidgetCatalog();
+      },
+    ),
+    GoRoute(
+      path: "/terms-and-conditions",
+      builder: (BuildContext context, GoRouterState state) {
+        return TermsAndConditionsWidgetExample();
+      },
+    ),
+    GoRoute(
+      path: "/ai-progress-indicator",
+      builder: (BuildContext context, GoRouterState state) {
+        return AiProgressIndicatorExample();
+      },
+    ),
+    GoRoute(
+      path: "/social-sign-in",
+      builder: (BuildContext context, GoRouterState state) {
+        return SocialSignInScreenExample();
+      },
+    ),
+    GoRoute(
+      path: "/notification-center",
+      builder: (BuildContext context, GoRouterState state) {
+        return NotificationCenterExample();
+      },
+    ),
+    GoRoute(
+      path: "/pdf-viewer",
+      builder: (BuildContext context, GoRouterState state) {
+        return PdfViewerWidgetExample();
+      },
+    ),
+    GoRoute(
+      path: "/image-viewer",
+      builder: (BuildContext context, GoRouterState state) {
+        return ImageViewerWidgetExample();
+      },
+    ),
+    GoRoute(
+      path: "/audio-message",
+      builder: (BuildContext context, GoRouterState state) {
+        return const AudioMessageExample();
+      },
+    ),
+    GoRoute(
+      path: "/group-manager",
+      builder: (BuildContext context, GoRouterState state) {
+        return const GroupManagerExample();
+      },
+    ),
+  ],
 );
-
-ShellRoute _getMainApplicationShellRoute() {
-  return ShellRoute(
-    builder: (BuildContext context, GoRouterState state, Widget child) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Material Design Widget Catalog'),
-          centerTitle: true,
-          actions: const [BrightnessButton()],
-        ),
-        body: child,
-      );
-    },
-    routes: <RouteBase>[
-      GoRoute(
-        path: homePath,
-        builder: (BuildContext context, GoRouterState state) {
-          return WidgetCatalog();
-        },
-      ),
-      GoRoute(
-        path: "/terms-and-conditions",
-        builder: (BuildContext context, GoRouterState state) {
-          return TermsAndConditionsWidgetExample();
-        },
-      ),
-      GoRoute(
-        path: "/ai-progress-indicator",
-        builder: (BuildContext context, GoRouterState state) {
-          return AiProgressIndicatorExample();
-        },
-      ),
-      GoRoute(
-        path: "/social-sign-in",
-        builder: (BuildContext context, GoRouterState state) {
-          return SocialSignInScreenExample();
-        },
-      ),
-      GoRoute(
-        path: "/notification-center",
-        builder: (BuildContext context, GoRouterState state) {
-          return NotificationCenterExample();
-        },
-      ),
-      GoRoute(
-        path: "/pdf-viewer",
-        builder: (BuildContext context, GoRouterState state) {
-          return PdfViewerWidgetExample();
-        },
-      ),
-      GoRoute(
-        path: "/image-viewer",
-        builder: (BuildContext context, GoRouterState state) {
-          return ImageViewerWidgetExample();
-        },
-      ),
-      GoRoute(
-        path: "/audio-message",
-        builder: (BuildContext context, GoRouterState state) {
-          return const AudioMessageExample();
-        },
-      ),
-      GoRoute(
-        path: "/group-manager",
-        builder: (BuildContext context, GoRouterState state) {
-          return const GroupManagerExample();
-        },
-      ),
-    ],
-  );
-}

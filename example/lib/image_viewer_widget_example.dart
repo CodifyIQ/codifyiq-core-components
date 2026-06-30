@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_image_viewer/codifyiq_image_viewer.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +25,10 @@ class ImageViewerWidgetExample extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Image Viewer Example')),
+      appBar: AppBar(
+        title: const Text('Image Viewer Example'),
+        actions: const [BrightnessButton()],
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
