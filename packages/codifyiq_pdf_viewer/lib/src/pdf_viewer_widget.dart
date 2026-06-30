@@ -29,6 +29,14 @@ import 'pdf_source.dart';
 /// previous controls. A status label indicates the current match position or
 /// "No matches" when the query has no hits.
 ///
+/// ## Loading
+///
+/// For a network [PdfSource.uri], a linear progress bar is shown across the top
+/// of the viewer while the document downloads — determinate when the server
+/// reports a content length, indeterminate otherwise. Set
+/// [showDownloadProgress] to `false` to suppress it, and/or supply
+/// [onDownloadProgress] to drive a custom UI.
+///
 /// ## Error handling
 ///
 /// If [errorBuilder] is provided it replaces the default in-viewer error
@@ -42,13 +50,18 @@ class PdfViewerWidget extends StatefulWidget {
     this.enableSearch = false,
     this.showZoomControlsOnWeb = true,
     this.showPageIndicator = true,
+    this.showDownloadProgress = true,
+    this.initialPageNumber = 1,
+    this.networkTimeout = const Duration(seconds: 30),
     this.minScale = 0.5,
     this.maxScale = 4.0,
     this.onPageChanged,
     this.onDocumentLoaded,
+    this.onDownloadProgress,
     this.errorBuilder,
     this.searchDebounce = const Duration(milliseconds: 300),
-  }) : assert(minScale > 0 && minScale <= maxScale);
+  }) : assert(minScale > 0 && minScale <= maxScale),
+       assert(initialPageNumber >= 1);
 
   /// The PDF document to render.
   final PdfSource source;
@@ -63,6 +76,25 @@ class PdfViewerWidget extends StatefulWidget {
   /// Whether the "Page X / Y" overlay is shown in the bottom-right corner.
   final bool showPageIndicator;
 
+  /// Whether a linear progress bar is shown across the top of the viewer while
+  /// a network document downloads. Determinate when the server reports a
+  /// content length, indeterminate otherwise. Only applies to
+  /// [PdfSource.uri] — file and bytes sources load without a download step.
+  final bool showDownloadProgress;
+
+  /// The 1-based page the document opens to. Applies to every [PdfSource]
+  /// variant. Defaults to 1.
+  final int initialPageNumber;
+
+  /// Time allowed for each network request to *start responding* (connect and
+  /// return response headers) before it fails and the error UI is shown. This
+  /// bounds a server that never responds; it does not cap the total download,
+  /// so a slow or stalled response body can still take longer than this. With
+  /// [PdfUriSource.preferRangeAccess] it applies per range request. Only
+  /// affects [PdfSource.uri]; file and bytes sources have no network step.
+  /// Defaults to 30 seconds.
+  final Duration networkTimeout;
+
   /// Lower bound for the zoom level passed to `pdfrx`.
   final double minScale;
 
@@ -76,6 +108,13 @@ class PdfViewerWidget extends StatefulWidget {
   /// Called once the document has loaded successfully. Receives the total
   /// page count.
   final void Function(int pageCount)? onDocumentLoaded;
+
+  /// Called as a network document downloads. [received] is the number of bytes
+  /// fetched so far; [total] is the full size when the server reports a
+  /// content length, otherwise `null`. Only fires for [PdfSource.uri]. Use
+  /// this to drive a custom progress UI; the built-in bar is controlled
+  /// separately by [showDownloadProgress].
+  final void Function(int received, int? total)? onDownloadProgress;
 
   /// Optional builder for an error UI shown in place of the document when
   /// loading fails.
@@ -251,27 +290,77 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
           ? null
           : (context, error, stackTrace, documentRef) =>
                 widget.errorBuilder!(context, error),
+      // Only override pdfrx's default loading UI when there's a download to
+      // report on: a network source with either the built-in bar enabled or a
+      // consumer callback attached. File/bytes sources keep the default
+      // spinner, which is momentary since there's no network fetch.
+      loadingBannerBuilder:
+          widget.source is PdfUriSource &&
+              (widget.showDownloadProgress || widget.onDownloadProgress != null)
+          ? _buildLoadingBanner
+          : null,
     );
 
     return switch (widget.source) {
-      PdfUriSource(:final uri, :final headers) => PdfViewer.uri(
-        uri,
-        controller: _controller,
-        params: params,
-        headers: headers,
-      ),
+      PdfUriSource(
+        :final uri,
+        :final headers,
+        :final preferRangeAccess,
+        :final useProgressiveLoading,
+      ) =>
+        PdfViewer.uri(
+          uri,
+          controller: _controller,
+          params: params,
+          initialPageNumber: widget.initialPageNumber,
+          headers: headers,
+          preferRangeAccess: preferRangeAccess,
+          useProgressiveLoading: useProgressiveLoading,
+          timeout: widget.networkTimeout,
+        ),
       PdfFileSource(:final path) => PdfViewer.file(
         path,
         controller: _controller,
         params: params,
+        initialPageNumber: widget.initialPageNumber,
       ),
       PdfBytesSource(:final bytes, :final sourceName) => PdfViewer.data(
         bytes,
         sourceName: sourceName ?? 'document.pdf',
         controller: _controller,
         params: params,
+        initialPageNumber: widget.initialPageNumber,
       ),
     };
+  }
+
+  // pdfrx renders this in place of the document while it downloads, rebuilding
+  // it as bytes arrive, and drops it once the document is ready. The consumer
+  // callback is fired post-frame rather than during this build so a listener
+  // that calls setState can't reenter our build synchronously.
+  Widget _buildLoadingBanner(
+    BuildContext context,
+    int bytesDownloaded,
+    int? totalBytes,
+  ) {
+    final onProgress = widget.onDownloadProgress;
+    if (onProgress != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) onProgress(bytesDownloaded, totalBytes);
+      });
+    }
+    if (!widget.showDownloadProgress) {
+      // Callback-only mode: keep pdfrx's default centered spinner rather than
+      // leaving the loading area blank.
+      return const Center(child: CircularProgressIndicator());
+    }
+    return _PdfDownloadProgressBar(
+      // Determinate only when a content length is known; a zero total would
+      // divide to NaN, so treat it as unknown and fall back to indeterminate.
+      value: (totalBytes != null && totalBytes > 0)
+          ? (bytesDownloaded / totalBytes).clamp(0.0, 1.0)
+          : null,
+    );
   }
 
   @override
@@ -410,6 +499,24 @@ class _PdfSearchBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PdfDownloadProgressBar extends StatelessWidget {
+  const _PdfDownloadProgressBar({required this.value});
+
+  /// Download fraction in `[0, 1]`, or `null` while the total size is unknown
+  /// (renders as an indeterminate bar).
+  final double? value;
+
+  @override
+  Widget build(BuildContext context) {
+    // Pin the bar to the top of the loading area so it reads as a thin
+    // indicator across the top of the viewer, rather than filling it.
+    return Align(
+      alignment: Alignment.topCenter,
+      child: LinearProgressIndicator(value: value),
     );
   }
 }
