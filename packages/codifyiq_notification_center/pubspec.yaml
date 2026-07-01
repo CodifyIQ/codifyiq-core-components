@@ -1,6 +1,6 @@
 name: codifyiq_notification_center
 description: A Play Store-style notification bell and center for tracking long-running, user-initiated background tasks.
-version: 1.0.0
+version: 1.0.1
 homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_notification_center
 repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_notification_center
 issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_notification_center/codifyiq_notification_center.dart';
 import 'package:flutter/material.dart';
 
@@ -26,6 +27,10 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
   int _taskCounter = 0;
   final List<Timer> _timers = [];
 
+  /// Whether new downloads report an indeterminate (unknown-duration)
+  /// progress bar rather than a determinate percentage.
+  bool _indeterminate = false;
+
   @override
   void dispose() {
     for (final t in _timers) {
@@ -38,43 +43,39 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
   void _startFakeDownload({bool willFail = false}) {
     _taskCounter += 1;
     final id = 'task-$_taskCounter';
-    final title = 'Downloading file_$_taskCounter.zip';
+    final fileName = 'file_$_taskCounter.zip';
+    final indeterminate = _indeterminate;
     _notifications.start(
       id: id,
-      title: title,
-      description: 'Starting…',
-      progress: 0,
+      title: 'Downloading $fileName',
+      description: indeterminate ? 'Working…' : 'Starting…',
+      // A null progress renders as an indeterminate spinner.
+      progress: indeterminate ? null : 0,
     );
+
+    if (indeterminate) {
+      // Unknown-duration work: no progress ticks, just finish after a while.
+      final ticksToFinish = 8 + _random.nextInt(8);
+      var ticks = 0;
+      final timer = Timer.periodic(const Duration(milliseconds: 400), (t) {
+        ticks += 1;
+        if (ticks >= ticksToFinish) {
+          t.cancel();
+          _timers.remove(t);
+          _finishDownload(id, fileName, willFail: willFail);
+        }
+      });
+      _timers.add(timer);
+      return;
+    }
+
     double progress = 0;
     final timer = Timer.periodic(const Duration(milliseconds: 400), (t) {
       progress += 0.05 + _random.nextDouble() * 0.1;
       if (progress >= 1.0) {
         t.cancel();
         _timers.remove(t);
-        if (willFail) {
-          _notifications.fail(
-            id,
-            description: 'Network error while downloading.',
-            action: NotificationItemAction(
-              label: 'Retry',
-              onPressed: () => _startFakeDownload(willFail: false),
-            ),
-          );
-        } else {
-          _notifications.complete(
-            id,
-            description: 'Saved to Downloads/file_$_taskCounter.zip',
-            action: NotificationItemAction(
-              label: 'Open',
-              onPressed: () {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Opening file_$_taskCounter.zip')),
-                );
-              },
-            ),
-          );
-        }
+        _finishDownload(id, fileName, willFail: willFail);
       } else {
         _notifications.updateProgress(
           id,
@@ -84,6 +85,33 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
       }
     });
     _timers.add(timer);
+  }
+
+  void _finishDownload(String id, String fileName, {required bool willFail}) {
+    if (willFail) {
+      _notifications.fail(
+        id,
+        description: 'Network error while downloading.',
+        action: NotificationItemAction(
+          label: 'Retry',
+          onPressed: () => _startFakeDownload(willFail: false),
+        ),
+      );
+    } else {
+      _notifications.complete(
+        id,
+        description: 'Saved to Downloads/$fileName',
+        action: NotificationItemAction(
+          label: 'Open',
+          onPressed: () {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Opening $fileName')),
+            );
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -96,6 +124,7 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
             controller: _notifications,
             iconColor: Theme.of(context).colorScheme.onSurface,
           ),
+          const BrightnessButton(),
         ],
       ),
       body: Padding(
@@ -108,7 +137,23 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
               'on this page or navigate away. Open the bell to see them.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 4,
+              children: [
+                _ModeCheckbox(
+                  label: 'Determinate',
+                  selected: !_indeterminate,
+                  onSelected: () => setState(() => _indeterminate = false),
+                ),
+                _ModeCheckbox(
+                  label: 'Indeterminate',
+                  selected: _indeterminate,
+                  onSelected: () => setState(() => _indeterminate = true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -132,6 +177,39 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A labelled checkbox used as a mutually-exclusive mode selector for the
+/// determinate / indeterminate download toggle.
+class _ModeCheckbox extends StatelessWidget {
+  const _ModeCheckbox({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onSelected,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: selected,
+            onChanged: (_) => onSelected(),
+          ),
+          Text(label),
+          const SizedBox(width: 8),
+        ],
       ),
     );
   }

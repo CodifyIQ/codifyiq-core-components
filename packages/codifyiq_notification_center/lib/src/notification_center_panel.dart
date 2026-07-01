@@ -6,10 +6,12 @@ import 'notification_item.dart';
 /// Dropdown panel listing the items in a [NotificationCenterController].
 ///
 /// Renders three sections in order — **In progress**, **Failed**,
-/// **Completed** — each preceded by a small header label. Running items
-/// show a linear progress bar; finished items show a status icon and an
-/// optional trailing action. Completed items can be dismissed with a
-/// trailing close button.
+/// **Completed** — each preceded by a small header label. A running item
+/// shows a single progress indicator: a leading spinner when its progress
+/// is indeterminate, or just a linear progress bar (no leading glyph) when
+/// it reports a determinate value. Finished items show a status icon
+/// and an optional trailing action. Completed items can be dismissed with
+/// a trailing close button.
 ///
 /// Normally constructed implicitly by [NotificationBellButton]; expose
 /// directly if you need to embed the list elsewhere (e.g. a side panel).
@@ -295,10 +297,11 @@ class _RowContent extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2, right: 12),
-              child: leading,
-            ),
+            if (leading != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 12),
+                child: leading,
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,7 +321,12 @@ class _RowContent extends StatelessWidget {
                       ),
                     ),
                   ],
-                  if (item.isRunning) ...[
+                  // Only a determinate task earns the linear bar — it shows
+                  // *how far along* the work is. An indeterminate task
+                  // (unknown duration, progress == null) is signalled solely
+                  // by the leading spinner, so we never stack two indicators
+                  // that say the same value-less "something's happening."
+                  if (item.isRunning && item.progress != null) ...[
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
@@ -339,19 +347,25 @@ class _RowContent extends StatelessWidget {
     );
   }
 
-  Widget _leadingFor(ThemeData theme) {
+  Widget? _leadingFor(ThemeData theme) {
     switch (item.status) {
       case NotificationItemStatus.running:
-        // Leading spinner is intentionally indeterminate — at 20px the
-        // progress arc is not legible, and its job here is just to
-        // signal "in progress." The determinate value lives in the
-        // LinearProgressIndicator below the row text, where the bar is
-        // wide enough to read.
-        return const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        );
+        // Exactly one progress indicator per running row (MD3):
+        //   • Indeterminate (progress == null) — the spinner *is* the
+        //     indicator. At 20px the arc isn't legible as a value, but it
+        //     reads clearly as "working," which is all an unknown-duration
+        //     task can honestly say.
+        //   • Determinate (progress != null) — the legible value lives in
+        //     the LinearProgressIndicator below the text, so the leading
+        //     slot is dropped entirely; the bar alone carries the row.
+        if (item.progress == null) {
+          return const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          );
+        }
+        return null;
       case NotificationItemStatus.success:
         return Icon(
           Icons.check_circle,

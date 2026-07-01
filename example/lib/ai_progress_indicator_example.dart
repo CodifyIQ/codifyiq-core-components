@@ -1,4 +1,5 @@
 import 'package:codifyiq_ai_progress_indicator/codifyiq_ai_progress_indicator.dart';
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:flutter/material.dart';
 
 /// An example page that demonstrates the usage of the [AiProgressIndicator].
@@ -12,7 +13,10 @@ class AiProgressIndicatorExample extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Progress Indicator Example')),
+      appBar: AppBar(
+        title: const Text('AI Progress Indicator Example'),
+        actions: const [BrightnessButton()],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

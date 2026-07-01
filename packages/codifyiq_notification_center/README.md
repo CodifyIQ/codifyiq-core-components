@@ -5,6 +5,10 @@
 A Play Store-style notification center for tracking long-running, user-initiated tasks
 (uploads, downloads, multi-step background work) without blocking the UI.
 
+## Demo
+Select the image for a quick walkthrough:
+[![Watch the notification center in action](doc/codifyiq_notification_center_demo.png)](https://drive.google.com/file/d/1uq70duvThCbSHBgxZn_wo_1Hfzs720Yq/view?usp=drive_link)
+
 ## Widgets
 
 * `NotificationBellButton` — an `AppBar` action with a stoplight-coded Material 3 badge. Opens an

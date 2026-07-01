@@ -1,3 +1,4 @@
+import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_terms_and_conditions/codifyiq_terms_and_conditions.dart';
 import 'package:flutter/material.dart';
 
@@ -89,7 +90,10 @@ class _TermsAndConditionsWidgetExampleState
     ''';
 
     return Scaffold(
-      appBar: AppBar(title: Text('Terms and Conditions Example')),
+      appBar: AppBar(
+        title: const Text('Terms and Conditions Example'),
+        actions: const [BrightnessButton()],
+      ),
       body: TermsAndConditionsWidget(
         onAccepted: _onAccepted,
         termsContent: customTerms,
