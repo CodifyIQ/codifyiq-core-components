@@ -18,9 +18,33 @@ sealed class PdfSource {
   /// authorization headers here (e.g. a JWT bearer token) for endpoints that
   /// require them.
   ///
+  /// When [preferRangeAccess] is `true`, the renderer fetches only the byte
+  /// ranges needed for the current viewport (via HTTP range requests) instead
+  /// of downloading the whole document up front, so the first page of a large
+  /// PDF renders after a single small request. The server must respond with
+  /// `206 Partial Content`; if it doesn't, the renderer falls back to a full
+  /// download automatically, so enabling this is safe even for servers that
+  /// don't support ranges. Ignored on web. Defaults to `false`.
+  ///
+  /// When [useProgressiveLoading] is `true` (the default), the renderer hands
+  /// back pages as the document structure resolves instead of waiting for the
+  /// whole file to parse, so later pages can render before the download
+  /// finishes. Pair it with [preferRangeAccess] for on-demand loading of a
+  /// large remote PDF.
+  ///
+  /// Incremental, page-by-page streaming only works on a **linearized**
+  /// ("Fast Web View") PDF. A non-linearized document keeps its cross-reference
+  /// table at the end of the file, so pages past the first can't resolve until
+  /// nearly the whole file has downloaded, even with [preferRangeAccess]. See
+  /// the package README for how to linearize.
+  ///
   /// On web, the target server must serve appropriate CORS headers.
-  const factory PdfSource.uri(Uri uri, {Map<String, String>? headers}) =
-      PdfUriSource;
+  const factory PdfSource.uri(
+    Uri uri, {
+    Map<String, String>? headers,
+    bool preferRangeAccess,
+    bool useProgressiveLoading,
+  }) = PdfUriSource;
 
   /// Loads a PDF from a local file path. Not supported on web.
   const factory PdfSource.file(String path) = PdfFileSource;
@@ -39,7 +63,18 @@ final class PdfUriSource extends PdfSource {
   ///
   /// [headers] are sent with the HTTP request — use this to supply
   /// authentication/authorization headers (e.g. a JWT bearer token).
-  const PdfUriSource(this.uri, {this.headers});
+  ///
+  /// When [preferRangeAccess] is `true`, the renderer streams the document via
+  /// HTTP range requests instead of downloading it in full up front. When
+  /// [useProgressiveLoading] is `true` (the default), pages resolve as the
+  /// document parses rather than only after the whole file is available. See
+  /// [PdfSource.uri] for details. Both are ignored on web.
+  const PdfUriSource(
+    this.uri, {
+    this.headers,
+    this.preferRangeAccess = false,
+    this.useProgressiveLoading = true,
+  });
 
   /// The URI to fetch the PDF from.
   final Uri uri;
@@ -47,12 +82,23 @@ final class PdfUriSource extends PdfSource {
   /// Optional HTTP headers sent with the request, e.g. for authentication.
   final Map<String, String>? headers;
 
+  /// Whether to fetch the document on demand via HTTP range requests rather
+  /// than downloading it in full before rendering. No effect on web.
+  final bool preferRangeAccess;
+
+  /// Whether pages are handed back progressively as the document parses,
+  /// instead of only once the full structure has resolved. Defaults to `true`.
+  /// No effect on web.
+  final bool useProgressiveLoading;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PdfUriSource &&
           other.uri == uri &&
-          mapEquals(other.headers, headers));
+          mapEquals(other.headers, headers) &&
+          other.preferRangeAccess == preferRangeAccess &&
+          other.useProgressiveLoading == useProgressiveLoading);
 
   @override
   int get hashCode => Object.hash(
@@ -62,6 +108,8 @@ final class PdfUriSource extends PdfSource {
         : Object.hashAllUnordered(
             headers!.entries.map((e) => Object.hash(e.key, e.value)),
           ),
+    preferRangeAccess,
+    useProgressiveLoading,
   );
 }
 

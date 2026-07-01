@@ -25,8 +25,12 @@ class PdfViewerWidgetExample extends StatefulWidget {
 class _PdfViewerWidgetExampleState extends State<PdfViewerWidgetExample> {
   bool _enableSearch = true;
 
+  // A ~5 MB public-domain sample, hosted on GitHub raw so it sends CORS and a
+  // Content-Length (making the download progress bar determinate) and supports
+  // range requests. Large enough that the progress bar is visible while it
+  // loads.
   static final Uri _sampleUri = Uri.parse(
-    'https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/tracemonkey.pdf',
+    'https://raw.githubusercontent.com/py-pdf/sample-files/main/009-pdflatex-geotopo/GeoTopo.pdf',
   );
 
   @override
@@ -44,11 +48,33 @@ class _PdfViewerWidgetExampleState extends State<PdfViewerWidgetExample> {
           const BrightnessButton(),
         ],
       ),
+      // preferRangeAccess is left false here so pdfrx downloads the whole file
+      // before first render, which showcases the determinate download progress
+      // bar. Set it to true to instead stream the document via HTTP range
+      // requests — the first page then renders after a single small request, so
+      // the progress bar barely appears. See the package README for the
+      // trade-off.
+      //
+      // useProgressiveLoading (on by default) hands back pages as the document
+      // parses; combined with preferRangeAccess: true it yields true on-demand,
+      // page-by-page loading of a large remote PDF.
       body: PdfViewerWidget(
-        source: PdfSource.uri(_sampleUri),
+        source: PdfSource.uri(
+          _sampleUri,
+          preferRangeAccess: false,
+          useProgressiveLoading: true,
+        ),
         enableSearch: _enableSearch,
+        // Open to a specific page (1 = default; e.g. from a deep link) and fail
+        // a stalled network load after 30s instead of spinning forever.
+        initialPageNumber: 1,
+        networkTimeout: const Duration(seconds: 30),
         onDocumentLoaded: (pageCount) => debugPrint('Loaded $pageCount pages'),
         onPageChanged: (page) => debugPrint('On page $page'),
+        // The built-in progress bar across the top of the viewer is shown by
+        // default; this callback additionally reports raw byte counts.
+        onDownloadProgress: (received, total) =>
+            debugPrint('Downloaded $received / ${total ?? '?'} bytes'),
         errorBuilder: (context, error) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

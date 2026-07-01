@@ -1,6 +1,6 @@
 name: codifyiq_pdf_viewer
 description: A PDF viewer widget with zoom controls, a page indicator, and optional text search, powered by pdfrx.
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_pdf_viewer
 repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_pdf_viewer
 issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
