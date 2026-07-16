@@ -181,6 +181,56 @@ class GroupManagerController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// Adds every principal in [principalIds] to every group in [groupIds].
+  ///
+  /// Additive — existing memberships are preserved, unlike [setAssignments]
+  /// which replaces a single principal's whole membership. Ids in [groupIds]
+  /// that are not present in the catalog are ignored, mirroring
+  /// [setAssignments]. Fires at most one [notifyListeners] for the whole
+  /// batch, and none if nothing changed.
+  void assignMany(Iterable<String> principalIds, Iterable<String> groupIds) {
+    final validGroupIds = [
+      for (final id in groupIds)
+        if (_groups.containsKey(id)) id,
+    ];
+    if (validGroupIds.isEmpty) return;
+
+    var changed = false;
+    for (final principalId in principalIds) {
+      final memberships = _assignments.putIfAbsent(
+        principalId,
+        () => <String>{},
+      );
+      for (final groupId in validGroupIds) {
+        if (memberships.add(groupId)) changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
+  /// Removes every principal in [principalIds] from every group in
+  /// [groupIds].
+  ///
+  /// Does nothing to a principal that isn't a member of a given group. A
+  /// principal left with no memberships is dropped entirely, matching
+  /// [unassign]. Fires at most one [notifyListeners] for the whole batch, and
+  /// none if nothing changed.
+  void unassignMany(Iterable<String> principalIds, Iterable<String> groupIds) {
+    final groupIdSet = Set<String>.of(groupIds);
+    if (groupIdSet.isEmpty) return;
+
+    var changed = false;
+    for (final principalId in principalIds) {
+      final memberships = _assignments[principalId];
+      if (memberships == null) continue;
+      final before = memberships.length;
+      memberships.removeAll(groupIdSet);
+      if (memberships.length != before) changed = true;
+      if (memberships.isEmpty) _assignments.remove(principalId);
+    }
+    if (changed) notifyListeners();
+  }
 }
 
 /// Provides an ambient [GroupManagerController] to descendants.

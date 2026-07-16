@@ -2,9 +2,11 @@
 /// them to principals.
 library;
 
+export 'src/bulk_selection_bar.dart';
 export 'src/group.dart';
 export 'src/group_assignment_field.dart';
 export 'src/group_avatar.dart';
+export 'src/group_bulk_assignment_dialog.dart';
 export 'src/group_chip.dart';
 export 'src/group_color.dart';
 export 'src/group_editor_dialog.dart';

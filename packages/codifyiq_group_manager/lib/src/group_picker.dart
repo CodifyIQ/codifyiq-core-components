@@ -30,6 +30,8 @@ class GroupPicker extends StatefulWidget {
     this.initiallySelected = const <String>{},
     this.lockedIds = const <String>{},
     this.title = 'Select groups',
+    this.confirmLabel,
+    this.destructive = false,
   });
 
   /// Every group the user may choose from.
@@ -43,6 +45,22 @@ class GroupPicker extends StatefulWidget {
 
   /// Heading shown at the top of the picker.
   final String title;
+
+  /// Overrides the confirm button's default "Done (n)" label, where `n` is
+  /// the selected count. Useful when the picker is framing a different action
+  /// than "select these groups" — e.g. [GroupBulkAssignmentDialog] uses this
+  /// to read "Add to 12 users" instead.
+  final String? confirmLabel;
+
+  /// Tints the checkboxes and confirm button with the error color instead of
+  /// the usual primary/secondary role.
+  ///
+  /// Checking a box here normally means "select this group" — read as
+  /// affirmative in every other use of this picker. Set this when checking a
+  /// box instead means the opposite, e.g. "mark this group for removal" (see
+  /// [GroupBulkAssignmentDialog.showRemoval]), so the reversed meaning has a
+  /// visual cue beyond the title and button text.
+  final bool destructive;
 
   /// M3 compact/medium breakpoint. Below this the picker is a bottom sheet; at
   /// or above it, a dialog.
@@ -59,6 +77,8 @@ class GroupPicker extends StatefulWidget {
     Set<String> initiallySelected = const <String>{},
     Set<String> lockedIds = const <String>{},
     String title = 'Select groups',
+    String? confirmLabel,
+    bool destructive = false,
   }) {
     final media = MediaQuery.of(context);
     // Host the picker on surfaceContainerLow so the surfaceContainerHigh search
@@ -70,6 +90,8 @@ class GroupPicker extends StatefulWidget {
       initiallySelected: initiallySelected,
       lockedIds: lockedIds,
       title: title,
+      confirmLabel: confirmLabel,
+      destructive: destructive,
     );
 
     if (media.size.width < _dialogBreakpoint) {
@@ -196,6 +218,9 @@ class _GroupPickerState extends State<GroupPicker> {
                     final tile = CheckboxListTile(
                       value: checked,
                       enabled: !isLocked,
+                      activeColor: widget.destructive
+                          ? theme.colorScheme.error
+                          : null,
                       secondary: GroupAvatar(group: group),
                       // A lock glyph beside the name marks the row as permanent,
                       // matching the locked chip and catalog cue — so the
@@ -242,17 +267,29 @@ class _GroupPickerState extends State<GroupPicker> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          // OverflowBar (the same widget AlertDialog uses for its actions)
+          // falls back to stacking the buttons vertically instead of
+          // overflowing horizontally — a long confirmLabel (e.g. "Remove from
+          // 128 users") can otherwise not fit next to "Cancel" on one line.
+          child: OverflowBar(
+            spacing: 8,
+            overflowSpacing: 8,
+            alignment: MainAxisAlignment.end,
+            overflowAlignment: OverflowBarAlignment.end,
             children: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Cancel'),
               ),
-              const SizedBox(width: 8),
               FilledButton(
+                style: widget.destructive
+                    ? FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                      )
+                    : null,
                 onPressed: () => Navigator.of(context).pop(resolved),
-                child: Text('Done (${resolved.length})'),
+                child: Text(widget.confirmLabel ?? 'Done (${resolved.length})'),
               ),
             ],
           ),

@@ -159,6 +159,83 @@ void main() {
       controller.assign('u', 'a');
       expect(() => controller.groupsFor('u').add('b'), throwsUnsupportedError);
     });
+
+    test('assignMany adds groups to every principal, additively', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+          Group(id: 'c', name: 'Gamma'),
+        ],
+      );
+      controller.assign('u1', 'c');
+
+      controller.assignMany(['u1', 'u2'], ['a', 'b', 'ghost']);
+
+      expect(controller.groupsFor('u1'), {'a', 'b', 'c'});
+      expect(controller.groupsFor('u2'), {'a', 'b'});
+    });
+
+    test('assignMany notifies once for the whole batch, none if unchanged', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.assignMany(['u1', 'u2'], ['a']);
+      expect(notifications, 1);
+
+      controller.assignMany(['u1', 'u2'], ['a']);
+      expect(notifications, 1);
+
+      controller.assignMany(['u1', 'u2'], ['ghost']);
+      expect(notifications, 1);
+    });
+
+    test('unassignMany removes groups from every principal', () {
+      final controller = GroupManagerController(
+        groups: const [
+          Group(id: 'a', name: 'Alpha'),
+          Group(id: 'b', name: 'Beta'),
+        ],
+      );
+      controller.assignMany(['u1', 'u2'], ['a', 'b']);
+
+      controller.unassignMany(['u1', 'u2'], ['a']);
+
+      expect(controller.groupsFor('u1'), {'b'});
+      expect(controller.groupsFor('u2'), {'b'});
+    });
+
+    test('unassignMany drops a principal left with no memberships', () {
+      final controller = GroupManagerController(
+        groups: const [Group(id: 'a', name: 'Alpha')],
+      );
+      controller.assign('u1', 'a');
+
+      controller.unassignMany(['u1'], ['a']);
+
+      expect(controller.groupsFor('u1'), isEmpty);
+    });
+
+    test(
+      'unassignMany notifies once for the whole batch, none if unchanged',
+      () {
+        final controller = GroupManagerController(
+          groups: const [Group(id: 'a', name: 'Alpha')],
+        );
+        controller.assign('u1', 'a');
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        controller.unassignMany(['u1', 'u2'], ['a']);
+        expect(notifications, 1);
+
+        controller.unassignMany(['u1'], ['a']);
+        expect(notifications, 1);
+      },
+    );
   });
 
   group('Group model', () {
@@ -417,6 +494,159 @@ void main() {
 
       expect(result, {'a'});
     });
+
+    testWidgets('destructive tints the confirm button and checkboxes with '
+        'the error color', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => GroupPicker.show(
+                  context,
+                  groups: const [Group(id: 'a', name: 'Alpha')],
+                  destructive: true,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final theme = Theme.of(tester.element(find.text('Alpha')));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(
+        button.style?.backgroundColor?.resolve({}),
+        theme.colorScheme.error,
+      );
+      final checkbox = tester.widget<CheckboxListTile>(
+        find.byType(CheckboxListTile),
+      );
+      expect(checkbox.activeColor, theme.colorScheme.error);
+    });
+  });
+
+  group('GroupBulkAssignmentDialog', () {
+    testWidgets('frames the picker around the principal count', (tester) async {
+      Set<String>? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async =>
+                    result = await GroupBulkAssignmentDialog.show(
+                      context,
+                      groups: const [
+                        Group(id: 'a', name: 'Alpha'),
+                        Group(id: 'b', name: 'Beta'),
+                      ],
+                      principalCount: 12,
+                    ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add groups to 12 users'), findsOneWidget);
+
+      await tester.tap(find.text('Alpha'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add to 12 users'));
+      await tester.pumpAndSettle();
+
+      expect(result, {'a'});
+    });
+
+    testWidgets('showRemoval frames the picker around removing', (
+      tester,
+    ) async {
+      Set<String>? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async =>
+                    result = await GroupBulkAssignmentDialog.showRemoval(
+                      context,
+                      groups: const [
+                        Group(id: 'a', name: 'Alpha'),
+                        Group(id: 'b', name: 'Beta'),
+                      ],
+                      principalCount: 3,
+                    ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove groups from 3 users'), findsOneWidget);
+
+      await tester.tap(find.text('Beta'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Remove from 3 users'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(result, {'b'});
+    });
+
+    testWidgets('showRemoval excludes lockedIds from the offered groups', (
+      tester,
+    ) async {
+      Set<String>? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async =>
+                    result = await GroupBulkAssignmentDialog.showRemoval(
+                      context,
+                      groups: const [
+                        Group(id: 'a', name: 'Alpha'),
+                        Group(id: 'b', name: 'Beta'),
+                      ],
+                      principalCount: 2,
+                      lockedIds: const {'a'},
+                    ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // The locked group isn't offered at all — not even checked-and-disabled
+      // — since a checked box here means "remove", and locking is supposed
+      // to prevent removal, not guarantee it.
+      expect(find.text('Alpha'), findsNothing);
+      expect(find.text('Beta'), findsOneWidget);
+
+      await tester.tap(find.text('Beta'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Remove from 2 users'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(result, {'b'});
+    });
   });
 
   group('GroupAssignmentField', () {
@@ -492,6 +722,202 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(changed, {'b'});
+    });
+
+    testWidgets('maxVisibleChips collapses overflow behind "+N more"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupAssignmentField(
+              groups: const [
+                Group(id: 'a', name: 'Alpha'),
+                Group(id: 'b', name: 'Beta'),
+                Group(id: 'c', name: 'Gamma'),
+              ],
+              selected: const {'a', 'b', 'c'},
+              onChanged: _noop,
+              maxVisibleChips: 2,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(GroupChip), findsNWidgets(2));
+      expect(find.text('+1 more'), findsOneWidget);
+
+      await tester.tap(find.text('+1 more'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GroupChip), findsNWidgets(3));
+      expect(find.text('+1 more'), findsNothing);
+      expect(find.text('Show less'), findsOneWidget);
+
+      await tester.tap(find.text('Show less'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GroupChip), findsNWidgets(2));
+      expect(find.text('+1 more'), findsOneWidget);
+    });
+
+    testWidgets('maxVisibleChips is inert when the count fits', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupAssignmentField(
+              groups: const [
+                Group(id: 'a', name: 'Alpha'),
+                Group(id: 'b', name: 'Beta'),
+              ],
+              selected: const {'a', 'b'},
+              onChanged: _noop,
+              maxVisibleChips: 5,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(GroupChip), findsNWidgets(2));
+      expect(find.textContaining('more'), findsNothing);
+    });
+
+    testWidgets('singleLine shows every chip when the row is wide enough', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1000,
+              child: GroupAssignmentField(
+                label: 'Ada Lovelace',
+                groups: const [
+                  Group(id: 'a', name: 'Alpha'),
+                  Group(id: 'b', name: 'Beta'),
+                  Group(id: 'c', name: 'Gamma'),
+                ],
+                selected: const {'a', 'b', 'c'},
+                onChanged: _noop,
+                singleLine: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(GroupChip), findsNWidgets(3));
+      expect(find.textContaining('more'), findsNothing);
+      // Label, chips, and the edit button share one Row.
+      expect(find.text('Ada Lovelace'), findsOneWidget);
+    });
+
+    testWidgets('singleLine collapses to fit a narrow row, then expands', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 260,
+              child: GroupAssignmentField(
+                groups: const [
+                  Group(id: 'a', name: 'Alpha'),
+                  Group(id: 'b', name: 'Beta'),
+                  Group(id: 'c', name: 'Gamma'),
+                ],
+                selected: const {'a', 'b', 'c'},
+                onChanged: _noop,
+                singleLine: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Too narrow to fit every chip: at least one shows, the rest collapse.
+      final visibleChips = tester.widgetList(find.byType(GroupChip)).length;
+      expect(visibleChips, lessThan(3));
+      expect(find.textContaining('more'), findsOneWidget);
+
+      await tester.tap(find.textContaining('more'));
+      await tester.pumpAndSettle();
+
+      // Expanded: every chip renders, plus "Show less" to collapse again.
+      expect(find.byType(GroupChip), findsNWidgets(3));
+      expect(find.text('Show less'), findsOneWidget);
+
+      await tester.tap(find.text('Show less'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widgetList(find.byType(GroupChip)).length, visibleChips);
+    });
+
+    testWidgets('singleLine still honors an explicit maxVisibleChips cap', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1000,
+              child: GroupAssignmentField(
+                groups: const [
+                  Group(id: 'a', name: 'Alpha'),
+                  Group(id: 'b', name: 'Beta'),
+                  Group(id: 'c', name: 'Gamma'),
+                ],
+                selected: const {'a', 'b', 'c'},
+                onChanged: _noop,
+                singleLine: true,
+                maxVisibleChips: 1,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(GroupChip), findsNWidgets(1));
+      expect(find.text('+2 more'), findsOneWidget);
+    });
+
+    testWidgets('singleLine ellipsizes an overlong label rather than '
+        'overflowing the row — even if that crowds out every real chip', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: GroupAssignmentField(
+                label:
+                    'A deliberately absurdly long member name that would '
+                    'otherwise consume the entire row all by itself',
+                groups: const [
+                  Group(id: 'a', name: 'Alpha'),
+                  Group(id: 'b', name: 'Beta'),
+                  Group(id: 'c', name: 'Gamma'),
+                ],
+                selected: const {'a', 'b', 'c'},
+                onChanged: _noop,
+                singleLine: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The label is ellipsized rather than rendered at full intrinsic width…
+      final label = tester.widget<Text>(find.textContaining('A deliberately'));
+      expect(label.overflow, TextOverflow.ellipsis);
+      expect(label.maxLines, 1);
+      // …so the row never overflows, even though it crowds every real chip
+      // out in favor of just the overflow chip — that's an acceptable
+      // outcome, unlike a broken layout.
+      expect(find.byType(GroupChip), findsNothing);
+      expect(find.text('+3 more'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 

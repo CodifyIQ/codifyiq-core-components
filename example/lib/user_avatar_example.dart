@@ -4,12 +4,15 @@ import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
 import 'package:flutter/material.dart';
 
-/// Example page demonstrating [UserAvatar].
+/// Example page demonstrating [UserAvatar] and [SelectableAvatarLeading].
 ///
 /// Shows the avatar in three states: a successfully loaded network photo,
 /// initials derived from a display name, and initials derived from an email
 /// fallback. Also illustrates radius and color overrides, plus supplying a
-/// non-URL image via [UserAvatar.imageProvider].
+/// non-URL image via [UserAvatar.imageProvider]. The final section shows
+/// [SelectableAvatarLeading] driving a small bulk-selectable list on its
+/// own — no `codifyiq_group_manager` involved — to demonstrate that it has
+/// no dependency beyond `UserAvatar` itself.
 class UserAvatarExample extends StatelessWidget {
   /// Creates a [UserAvatarExample].
   const UserAvatarExample({super.key});
@@ -78,7 +81,7 @@ class UserAvatarExample extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
-            for (final user in _users) _AvatarRow(user: user),
+            const _TwoColumnAvatarRows(users: _users),
             const Divider(height: 32),
             Text(
               'Size and color overrides:',
@@ -126,9 +129,114 @@ class UserAvatarExample extends StatelessWidget {
                 ),
               ],
             ),
+            const Divider(height: 32),
+            Text(
+              'SelectableAvatarLeading: tap an avatar, or hover it on desktop, '
+              'to swap it for a check icon and select the row — the Google '
+              'Contacts pattern for starting a multi-select. Selected rows '
+              'keep showing the check icon even without hovering.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            const _SelectableAvatarSection(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A small self-contained bulk-selectable list demonstrating
+/// [SelectableAvatarLeading] with no dependency on `codifyiq_group_manager` —
+/// just a `Set<String>` of selected names, owned locally.
+class _SelectableAvatarSection extends StatefulWidget {
+  const _SelectableAvatarSection();
+
+  static const List<String> _names = [
+    'Ada Lovelace',
+    'Grace Hopper',
+    'Linus Torvalds',
+    'Margaret Hamilton',
+  ];
+
+  @override
+  State<_SelectableAvatarSection> createState() =>
+      _SelectableAvatarSectionState();
+}
+
+class _SelectableAvatarSectionState extends State<_SelectableAvatarSection> {
+  final Set<String> _selected = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _selected.isEmpty
+              ? 'No one selected'
+              : '${_selected.length} selected',
+          style: theme.textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        for (final name in _SelectableAvatarSection._names)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                SelectableAvatarLeading(
+                  displayName: name,
+                  selected: _selected.contains(name),
+                  onChanged: (checked) => setState(() {
+                    if (checked) {
+                      _selected.add(name);
+                    } else {
+                      _selected.remove(name);
+                    }
+                  }),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: Text(name)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Lays [users] out in two side-by-side columns instead of one long list, so
+/// the fallback showcase fits in less vertical space.
+///
+/// Split column-major (first half left, second half right) rather than
+/// interleaved, so reading top-to-bottom then left-to-right still visits the
+/// items in [users]' original order.
+class _TwoColumnAvatarRows extends StatelessWidget {
+  const _TwoColumnAvatarRows({required this.users});
+
+  final List<_DemoUser> users;
+
+  @override
+  Widget build(BuildContext context) {
+    final split = (users.length / 2).ceil();
+    final left = users.take(split);
+    final right = users.skip(split);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            children: [for (final user in left) _AvatarRow(user: user)],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            children: [for (final user in right) _AvatarRow(user: user)],
+          ),
+        ),
+      ],
     );
   }
 }
