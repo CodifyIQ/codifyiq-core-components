@@ -303,10 +303,7 @@ class _GroupAssignmentFieldState extends State<GroupAssignmentField> {
         // estimate what's left for the chip flow without a nested layout pass.
         final labelWidth = widget.label == null
             ? 0.0
-            : _textWidth(
-                context,
-                widget.label!,
-              ).clamp(0.0, labelMaxWidth);
+            : _textWidth(context, widget.label!).clamp(0.0, labelMaxWidth);
         final chipAreaWidth =
             (constraints.maxWidth - editWidth - labelWidth - labelGapWidth)
                 .clamp(0.0, double.infinity);
