@@ -17,13 +17,13 @@ dependencies:
   codifyiq_ai_progress_indicator: ^1.0.0
   codifyiq_audio_message: ^1.0.0
   codifyiq_brightness_button: ^1.0.0
-  codifyiq_group_manager: ^1.0.0
+  codifyiq_group_manager: ^1.1.0
   codifyiq_image_viewer: ^1.0.0
   codifyiq_notification_center: ^1.0.0
   codifyiq_pdf_viewer: ^1.0.0
   codifyiq_social_sign_in: ^1.0.0
   codifyiq_terms_and_conditions: ^1.0.0
-  codifyiq_user_avatar: ^1.0.0
+  codifyiq_user_avatar: ^1.1.0
 
   # Example-only dependencies (not shipped by any published package).
   adaptive_theme: ^3.7.0

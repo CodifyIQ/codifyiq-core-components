@@ -1,3 +1,7 @@
+## 1.1.0
+
+* `SelectableAvatarLeading` — a list row's leading control that swaps a `UserAvatar` for a tappable check icon on hover, or permanently once selected: the Google Contacts pattern for starting a multi-select without dedicating a whole column to checkboxes up front.
+
 ## 1.0.0
 
 * Initial release as a standalone package, extracted from `codifyiq_core_components`.
