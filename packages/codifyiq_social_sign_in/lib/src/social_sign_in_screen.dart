@@ -2,6 +2,42 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'magic_link_form.dart';
+
+/// Themed error banner shared by [SocialSignInScreen] and [MagicLinkForm] for
+/// system-failure messages (send/resend/sign-in failures), as opposed to
+/// field-level validation.
+///
+/// Not exported from the package's public API — internal to this package.
+Widget buildErrorBanner(ThemeData theme, String message) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: theme.colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.error_outline,
+          color: theme.colorScheme.onErrorContainer,
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onErrorContainer,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 /// A sign-in failure split into a user-safe [message] and the underlying
 /// technical [detail].
 ///
@@ -177,7 +213,10 @@ class SocialSignInScreen extends StatefulWidget {
   /// Use this to capture the (unredacted) [SocialSignInError.detail] in your
   /// app's diagnostics — Crashlytics, Sentry, structured logs — without ever
   /// surfacing it to the user. Fires after the frame in which the error first
-  /// appears; not called for the deprecated [errorMessage].
+  /// appears; not called for the deprecated [errorMessage]. Magic-link
+  /// send/resend failures from the hosted [MagicLinkForm] are also reported
+  /// here (their user-facing message is shown inline by the form, not via
+  /// [error]).
   final void Function(SocialSignInError error)? onError;
 
   /// Optional error message displayed in a themed error container.
@@ -243,9 +282,12 @@ class SocialSignInScreen extends StatefulWidget {
   State<SocialSignInScreen> createState() => _SocialSignInScreenState();
 }
 
+/// Which alternate content, if any, has replaced the social sign-in buttons.
+enum _RevealMode { none, reviewer, magicLink }
+
 class _SocialSignInScreenState extends State<SocialSignInScreen> {
   int _tapCount = 0;
-  bool _isReviewerLoginRevealed = false;
+  _RevealMode _revealMode = _RevealMode.none;
   Timer? _resetTimer;
 
   static const Duration _resetDuration = Duration(seconds: 5);
@@ -290,7 +332,9 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
 
     setState(() {
       _tapCount = newCount;
-      _isReviewerLoginRevealed = isRevealed;
+      if (isRevealed) {
+        _revealMode = _RevealMode.reviewer;
+      }
     });
 
     if (!isRevealed) {
@@ -300,9 +344,27 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
 
   void _resetTapCounter() {
     _resetTimer?.cancel();
+    setState(() => _tapCount = 0);
+  }
+
+  void _hideRevealedContent() {
+    _resetTimer?.cancel();
     setState(() {
       _tapCount = 0;
-      _isReviewerLoginRevealed = false;
+      _revealMode = _RevealMode.none;
+      _magicLinkSource = null;
+    });
+  }
+
+  final _magicLinkFormKey = GlobalKey<MagicLinkFormState>();
+  MagicLinkButton? _magicLinkSource;
+
+  void _revealMagicLink(MagicLinkButton source) {
+    _resetTimer?.cancel();
+    setState(() {
+      _tapCount = 0;
+      _revealMode = _RevealMode.magicLink;
+      _magicLinkSource = source;
     });
   }
 
@@ -321,96 +383,123 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
         ? GestureDetector(onTap: _handleLogoTap, child: widget.logo)
         : widget.logo;
 
-    return Scaffold(
-      appBar: widget.appBar,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              logoWidget,
-              if (widget.tagline != null) ...[
-                const SizedBox(height: 16),
-                widget.tagline!,
-              ],
-              const SizedBox(height: 32),
-              Text(
-                _isReviewerLoginRevealed
-                    ? widget.reviewerLoginPrompt
-                    : widget.signInPrompt,
-                style: theme.textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              if (errorText != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: theme.colorScheme.onErrorContainer,
-                        size: 20,
+    return PopScope(
+      // System back steps the reveal back (form-internal step first, then
+      // back to the button column) before the route itself may pop.
+      canPop: _revealMode == _RevealMode.none,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_magicLinkFormKey.currentState?.maybePop() ?? false) return;
+        _hideRevealedContent();
+      },
+      child: _MagicLinkScope(
+        reveal: _revealMagicLink,
+        child: Scaffold(
+          appBar: widget.appBar,
+          // Top-aligned rather than centered so content growth (an error
+          // appearing, a taller phase) extends downward — everything above
+          // the growth point holds still.
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  logoWidget,
+                  if (widget.tagline != null) ...[
+                    const SizedBox(height: 16),
+                    widget.tagline!,
+                  ],
+                  const SizedBox(height: 32),
+                  if (_revealMode != _RevealMode.magicLink)
+                    Text(
+                      _revealMode == _RevealMode.reviewer
+                          ? widget.reviewerLoginPrompt
+                          : widget.signInPrompt,
+                      style: theme.textTheme.bodyLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 16),
+                    buildErrorBanner(theme, errorText),
+                  ],
+                  const SizedBox(height: 24),
+                  if (widget.isProcessing) ...[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.processingMessage,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          errorText,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
-                          ),
-                        ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ] else if (_revealMode == _RevealMode.reviewer) ...[
+                    widget.reviewerLoginContent ??
+                        _ReviewerLoginForm(onSignIn: widget.onReviewerSignIn!),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: _hideRevealedContent,
+                      icon: const Icon(Icons.arrow_back, size: 16),
+                      label: const Text('Back to social logins'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                       ),
+                    ),
+                  ] else if (_revealMode == _RevealMode.magicLink)
+                    ..._buildMagicLinkForm(theme)
+                  else ...[
+                    for (int i = 0; i < widget.signInButtons.length; i++) ...[
+                      widget.signInButtons[i],
+                      if (i < widget.signInButtons.length - 1)
+                        const SizedBox(height: 12),
                     ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              if (widget.isProcessing) ...[
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  widget.processingMessage,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ] else if (_isReviewerLoginRevealed) ...[
-                widget.reviewerLoginContent ??
-                    _ReviewerLoginForm(onSignIn: widget.onReviewerSignIn!),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: _resetTapCounter,
-                  icon: const Icon(Icons.arrow_back, size: 16),
-                  label: const Text('Back to social logins'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.primary,
-                  ),
-                ),
-              ] else
-                for (int i = 0; i < widget.signInButtons.length; i++) ...[
-                  widget.signInButtons[i],
-                  if (i < widget.signInButtons.length - 1)
-                    const SizedBox(height: 12),
+                  ],
                 ],
-            ],
+              ),
+            ),
           ),
+          bottomNavigationBar: widget.footer != null
+              ? Padding(padding: const EdgeInsets.all(16), child: widget.footer)
+              : null,
         ),
       ),
-      bottomNavigationBar: widget.footer != null
-          ? Padding(padding: const EdgeInsets.all(16), child: widget.footer)
-          : null,
     );
+  }
+
+  List<Widget> _buildMagicLinkForm(ThemeData theme) {
+    return [
+      _magicLinkSource!.form.copyWith(
+        key: _magicLinkFormKey,
+        onError: _magicLinkSource!.form.onError ?? widget.onError,
+        // The form's phase drives the back button below; rebuild
+        // when it changes rather than mirroring it in a field.
+        onLinkSentChanged: (_) => setState(() {}),
+      ),
+      const SizedBox(height: 16),
+      // Two-stage escape: from the confirmation panel the button
+      // returns to the email view (address kept, so a typo can be
+      // corrected); from the email view it leaves magic-link mode.
+      if (_magicLinkFormKey.currentState?.isLinkSent ?? false)
+        TextButton.icon(
+          onPressed: () => _magicLinkFormKey.currentState?.returnToEmail(),
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('Re-enter address'),
+          style: TextButton.styleFrom(
+            foregroundColor: theme.colorScheme.primary,
+          ),
+        )
+      else
+        TextButton.icon(
+          onPressed: _hideRevealedContent,
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('Back to sign-in options'),
+          style: TextButton.styleFrom(
+            foregroundColor: theme.colorScheme.primary,
+          ),
+        ),
+    ];
   }
 }
 
@@ -791,4 +880,83 @@ class MicrosoftSignInButton extends StatelessWidget {
       width: width,
     );
   }
+}
+
+/// A convenience [SocialSignInButton] preconfigured for the email magic-link
+/// option.
+///
+/// Defaults [label] to `'Continue with email'` and [icon] to
+/// `Icons.mail_outline`. Unlike the social-provider buttons, this icon is a
+/// generic Material glyph (no trademarked brand asset), so it inherits the
+/// ambient icon theme.
+///
+/// Always self-wires to its host, following the [BackButton]/[DrawerButton]
+/// pattern: inside a [SocialSignInScreen]'s [SocialSignInScreen.signInButtons],
+/// this button reveals the button's [MagicLinkForm] inline; the button renders
+/// disabled when no such scope is found. For custom tap behavior, use a plain
+/// [SocialSignInButton] instead.
+class MagicLinkButton extends StatelessWidget {
+  /// Creates a [MagicLinkButton].
+  ///
+  /// [form] the [MagicLinkForm] to show on press
+  /// [icon] overrides the default `Icons.mail_outline` glyph.
+  /// [label] overrides the default `'Continue with email'` text.
+  const MagicLinkButton({
+    super.key,
+    required this.form,
+    this.icon = const Icon(Icons.mail_outline, size: 20),
+    this.label = 'Continue with email',
+    this.style,
+    this.width = 300,
+  });
+
+  /// Sends a magic link to the entered email when this button reveals the
+  /// host screen's [MagicLinkForm]. To ensure wiring works with the
+  /// [SocialSignInScreen], the [MagicLinkForm.key] and
+  /// [MagicLinkForm.onLinkSentChanged] of this form will be overridden
+  final MagicLinkForm form;
+
+  /// The leading icon. Defaults to `Icons.mail_outline`.
+  final Widget icon;
+
+  /// The button text. Defaults to `'Continue with email'`.
+  final String label;
+
+  /// Optional style override for the underlying button.
+  final ButtonStyle? style;
+
+  /// The button width. Defaults to `300`.
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = _MagicLinkScope.maybeOf(context);
+    return SocialSignInButton(
+      label: label,
+      icon: icon,
+      onPressed: scope != null ? () => scope.reveal(this) : null,
+      style: style,
+      width: width,
+    );
+  }
+}
+
+/// Private capability that lets a [MagicLinkButton] inside
+/// [SocialSignInScreen.signInButtons] reveal the screen's inline
+/// [MagicLinkForm], following the [BackButton]/[DrawerButton] self-wiring
+/// pattern. Not exported — the reveal mechanism is an implementation detail
+/// of [SocialSignInScreen].
+class _MagicLinkScope extends InheritedWidget {
+  const _MagicLinkScope({required this.reveal, required super.child});
+
+  /// Reveals the host screen's [MagicLinkForm] configured from [source].
+  final void Function(MagicLinkButton source) reveal;
+
+  static _MagicLinkScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_MagicLinkScope>();
+
+  // The screen never changes which reveal callback is in scope, so
+  // descendants never need to rebuild on this widget's account.
+  @override
+  bool updateShouldNotify(_MagicLinkScope oldWidget) => false;
 }
