@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 
 /// An example page that demonstrates the usage of [SocialSignInScreen].
 ///
-/// Renders the sign-in screen with placeholder branding and up to three
-/// social sign-in buttons (Google, Apple, and Microsoft Office 365). Each
-/// provider can be independently toggled on or off via the app-bar overflow
-/// menu — Google and Apple are enabled by default; Microsoft is disabled by
-/// default in the library, but active in this examples as an optional
-/// enterprise provider behind a feature flag.
+/// Renders the sign-in screen with placeholder branding, up to three social
+/// sign-in buttons (Google, Apple, and Microsoft Office 365), and an email
+/// magic-link option. Each provider can be independently toggled on or off
+/// via the app-bar overflow menu — Google, Apple, and Magic Link are enabled
+/// by default; Microsoft is disabled by default in the library, but active
+/// in this examples as an optional enterprise provider behind a feature
+/// flag.
 ///
 /// The reviewer login easter egg is enabled (tap the logo 5 times to reveal
 /// it). Tapping any social button simulates a login handshake by enabling
@@ -28,12 +29,22 @@ class SocialSignInScreenExample extends StatefulWidget {
       _SocialSignInScreenExampleState();
 }
 
+/// The fixed demo code accepted by [MagicLinkButton.onSubmitCode] below.
+const _demoMagicLinkCode = '123456';
+
 class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
   bool _isProcessing = false;
   bool _googleEnabled = true;
   bool _appleEnabled = true;
   bool _microsoftEnabled = true;
+  bool _magicLinkEnabled = true;
   SocialSignInError? _error;
+
+  // There's deliberately no public API to dismiss revealed content — real
+  // hosts navigate away on sign-in success instead. This key simulates that
+  // in the example by rebuilding the screen fresh, collapsing the revealed
+  // code-entry panel back to the social-login button column.
+  Key _screenKey = UniqueKey();
 
   void _simulateSignIn(String provider) {
     setState(() {
@@ -72,7 +83,9 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
   @override
   Widget build(BuildContext context) {
     return SocialSignInScreen(
+      key: _screenKey,
       appBar: AppBar(
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         title: const Text('Social Sign-In Screen Example'),
         actions: [
           PopupMenuButton<String>(
@@ -86,6 +99,8 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
                   _appleEnabled = !_appleEnabled;
                 case 'microsoft':
                   _microsoftEnabled = !_microsoftEnabled;
+                case 'magicLink':
+                  _magicLinkEnabled = !_magicLinkEnabled;
               }
             }),
             itemBuilder: (context) => [
@@ -103,6 +118,11 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
                 value: 'microsoft',
                 checked: _microsoftEnabled,
                 child: const Text('Microsoft Office 365'),
+              ),
+              CheckedPopupMenuItem(
+                value: 'magicLink',
+                checked: _magicLinkEnabled,
+                child: const Text('Magic Link'),
               ),
             ],
           ),
@@ -139,6 +159,33 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
           AppleSignInButton(onPressed: () => _simulateSignIn('Apple')),
         if (_microsoftEnabled)
           MicrosoftSignInButton(onPressed: () => _simulateSignIn('Microsoft')),
+        // Last to match the overflow-menu toggle ordering.
+        if (_magicLinkEnabled)
+          MagicLinkButton(
+            form: MagicLinkForm(
+              onSubmitEmail: (email) async {
+                await Future.delayed(const Duration(milliseconds: 750));
+              },
+              resendCooldown: const Duration(seconds: 10),
+              codeHelperText: 'Demo: use code 123-456',
+              onSubmitCode: (code) async {
+                await Future.delayed(const Duration(milliseconds: 750));
+                if (code != _demoMagicLinkCode) {
+                  throw Exception('Incorrect code (simulated)');
+                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Magic-link code accepted (simulated)'),
+                  ),
+                );
+                // Real apps navigate away on sign-in success instead of
+                // resetting the screen; this simulates that by rebuilding it
+                // fresh, returning to the social-login button column.
+                setState(() => _screenKey = UniqueKey());
+              },
+            ),
+          ),
       ],
       reviewerLoginEnabled: true,
       onReviewerSignIn: (email, password) {

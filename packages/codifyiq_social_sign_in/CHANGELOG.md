@@ -1,3 +1,13 @@
+## 1.1.0
+
+* Email magic-link sign-in. Add a `MagicLinkButton` with `onSubmitEmail` to
+  `signInButtons` for an inline flow: email entry, a "check your inbox"
+  confirmation, and resend with a configurable cooldown. Also exported
+  standalone as `MagicLinkForm` for use outside `SocialSignInScreen`.
+* Cross-device code fallback: provide `onSubmitCode` and the confirmation
+  panel adds entry for the short code included in the email, for devices
+  where the link can't be tapped.
+
 ## 1.0.0
 
 * Initial release as a standalone package, extracted from `codifyiq_core_components`.

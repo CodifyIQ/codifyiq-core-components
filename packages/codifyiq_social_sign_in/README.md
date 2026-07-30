@@ -15,6 +15,9 @@ authentication callbacks.
 * A built-in processing state that replaces the buttons with a progress indicator during
   authentication, preventing duplicate taps.
 * `SocialSignInButton` — a companion widget for consistent icon + label button styling.
+* An optional **email magic-link** option: a "Continue with email" button that reveals an
+  inline form with a "check your inbox" confirmation and resend cooldown (see
+  [Magic-link sign-in](#magic-link-sign-in)).
 * An optional **reviewer login easter egg**: tapping the logo a configurable number of times
   reveals a built-in email/password form for app-store reviewers.
 
@@ -67,6 +70,89 @@ try {
   ));
 }
 ```
+
+## Magic-link sign-in
+
+Add `MagicLinkButton` to `signInButtons` with an `onSubmitEmail` callback.
+Tapping it reveals an inline form. On submission, a confirmation screen appears
+with a resend option (`resendCooldown` is configurable; `onResend` defaults to
+`onSubmitEmail`).
+
+```dart
+SocialSignInScreen(
+  signInButtons: [
+    SocialSignInButton(icon: googleLogo, label: 'Continue with Google', onPressed: _google),
+    MagicLinkButton(
+      onSubmitEmail: (email) => _sendMagicLink(email),
+    ),
+  ],
+);
+
+```
+
+`MagicLinkForm` is also exported for standalone use outside `SocialSignInScreen`.
+
+> **Backend Security:** Always return `202 Success` on email submission to
+> prevent account enumeration.
+
+### Code fallback
+
+Providing `onSubmitCode` adds a fallback field for short codes included in the
+email — useful when link clicks fail due to cross-device access or email scanner
+pre-fetching.
+
+```dart
+MagicLinkButton(
+  onSubmitEmail: (email) => _sendMagicLink(email),
+  onSubmitCode: (code) => _verifyCode(code),
+  codeLength: 6,
+  codeHelperText: 'The code expires in 15 minutes.',
+);
+```
+
+The callback receives only the code (pasted separators ` `/`-` are auto-stripped),
+and thrown exceptions display inline errors. `MagicLinkCodeField` is also
+available as a standalone component.
+
+### Using Firebase
+
+Firebase Auth natively handles email-link sign-in:
+
+```dart
+MagicLinkButton(
+  onSubmitEmail: (email) async {
+    await prefs.setString('pendingMagicLinkEmail', email);
+    await FirebaseAuth.instance.sendSignInLinkToEmail(
+      email: email,
+      actionCodeSettings: ActionCodeSettings(
+        url: 'https://example.com/verify',
+        handleCodeInApp: true,
+        androidPackageName: 'com.example.app',
+        iOSBundleId: 'com.example.app',
+      ),
+    );
+  },
+);
+
+// Deep-link verify handler:
+if (auth.isSignInWithEmailLink(link)) {
+  final credential = await auth.signInWithEmailLink(
+    email: storedEmail,
+    emailLink: link,
+  );
+}
+```
+
+### Deep linking
+
+Route magic links to a verified path using standard HTTPS App Links (Android) or
+Universal Links (iOS). Do not use Firebase Dynamic Links, as they are sunset.
+
+### Registration completion
+
+Authentication completes at your `/verify` deep-link route outside this widget's
+lifecycle. Gate onboarding via router-level redirects based on server-side
+profile completeness rather than inline widget callbacks.
 
 > **Brand compliance:** This package does not bundle provider logos — they are trademarked
 > assets that cannot be redistributed in an open-source package. Obtain them from each provider's
