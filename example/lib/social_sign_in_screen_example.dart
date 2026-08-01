@@ -141,8 +141,7 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
       error: _error,
       // Capture the verbose technical detail for diagnostics (Crashlytics,
       // Sentry, server logs) — never shown to the user. Here we just print it.
-      onError: (error) =>
-          debugPrint('Sign-in error captured: ${error.detail}'),
+      onError: (error) => debugPrint('Sign-in error captured: ${error.detail}'),
       signInButtons: [
         // Each provider button ships with a Material Icons placeholder glyph
         // suitable for prototyping. In production, override `icon:` with the

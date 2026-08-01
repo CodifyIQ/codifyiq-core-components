@@ -1,3 +1,7 @@
+## 1.1.1
+
+* Square- and curly-bracketed qualifiers in a display name (e.g. `"Alice [Contractor]"`, `"Alice {External}"`) are now stripped before deriving initials, alongside the parenthetical form already handled. `"Alice [Contractor]"` shows `"AL"` instead of `"A["`.
+
 ## 1.1.0
 
 * `SelectableAvatarLeading` — a list row's leading control that swaps a `UserAvatar` for a tappable check icon on hover, or permanently once selected: the Google Contacts pattern for starting a multi-select without dedicating a whole column to checkboxes up front.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'group.dart';
 import 'group_color.dart';
+import 'unsaved_changes_guard.dart';
 
 /// A Material 3 dialog for creating or editing a [Group].
 ///
@@ -55,6 +56,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   late final TextEditingController _description;
   GroupColor? _color;
   IconData? _icon;
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -65,6 +67,8 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     );
     _color = widget.initial?.color;
     _icon = widget.initial?.icon;
+    _name.addListener(_syncDirty);
+    _description.addListener(_syncDirty);
   }
 
   @override
@@ -72,6 +76,21 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     _name.dispose();
     _description.dispose();
     super.dispose();
+  }
+
+  /// Whether the form differs from the group it opened with — the signal that
+  /// dismissing the dialog would throw work away.
+  bool get _isDirty =>
+      _name.text.trim() != (widget.initial?.name ?? '') ||
+      _description.text.trim() != (widget.initial?.description ?? '') ||
+      _color != widget.initial?.color ||
+      _icon != widget.initial?.icon;
+
+  // Typing rebuilds the fields on its own; rebuild the dialog only when the
+  // dirty flag actually flips, so the guard stays in sync without a setState
+  // per keystroke.
+  void _syncDirty() {
+    if (_isDirty != _dirty) setState(() => _dirty = _isDirty);
   }
 
   void _save() {
@@ -92,69 +111,73 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initial != null;
-    return AlertDialog(
-      // Scroll the content so a short viewport (or the validation message
-      // expanding the form) never overflows.
-      scrollable: true,
-      title: Text(isEditing ? 'Edit group' : 'New group'),
-      content: SizedBox(
-        width: 380,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _name,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'e.g. Administrators',
+    return UnsavedChangesGuard(
+      hasChanges: _isDirty,
+      child: AlertDialog(
+        // Scroll the content so a short viewport (or the validation message
+        // expanding the form) never overflows.
+        scrollable: true,
+        title: Text(isEditing ? 'Edit group' : 'New group'),
+        content: SizedBox(
+          width: 380,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'e.g. Administrators',
+                  ),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Name is required'
+                      : null,
+                  onFieldSubmitted: (_) => _save(),
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Name is required'
-                    : null,
-                onFieldSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _description,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _description,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (optional)',
+                  ),
+                  maxLines: 2,
                 ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 20),
-              _SectionLabel('Color'),
-              const SizedBox(height: 8),
-              _ColorPalette(
-                selected: _color,
-                onSelected: (c) => setState(() => _color = c),
-              ),
-              const SizedBox(height: 20),
-              _SectionLabel('Icon'),
-              const SizedBox(height: 8),
-              _IconPalette(
-                selected: _icon,
-                onSelected: (i) => setState(() => _icon = i),
-              ),
-            ],
+                const SizedBox(height: 20),
+                _SectionLabel('Color'),
+                const SizedBox(height: 8),
+                _ColorPalette(
+                  selected: _color,
+                  onSelected: (c) => setState(() => _color = c),
+                ),
+                const SizedBox(height: 20),
+                _SectionLabel('Icon'),
+                const SizedBox(height: 8),
+                _IconPalette(
+                  selected: _icon,
+                  onSelected: (i) => setState(() => _icon = i),
+                ),
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            // maybePop, not pop, so Cancel goes through the discard prompt too.
+            onPressed: () => Navigator.maybePop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _save,
+            child: Text(isEditing ? 'Save' : 'Create'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(isEditing ? 'Save' : 'Create'),
-        ),
-      ],
     );
   }
 }

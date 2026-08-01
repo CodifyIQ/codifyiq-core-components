@@ -21,6 +21,22 @@ import 'group.dart';
 /// 3. Assign membership with [assign], [unassign], or [setAssignments], and
 ///    read it back with [groupsFor] / [resolvedGroupsFor].
 ///
+/// Assignments are a two-way relation, and every operation has a mirror so you
+/// can work from whichever end your UI presents:
+///
+/// | Principal-centric ("which groups?") | Group-centric ("which members?") |
+/// |---|---|
+/// | [groupsFor] / [resolvedGroupsFor] | [membersOf] / [memberCount] |
+/// | [setAssignments] | [setMembers] |
+/// | [assignMany] / [unassignMany] | [assignMany] / [unassignMany] |
+///
+/// Both read and write the same underlying data, so a change made from one side
+/// is immediately visible from the other. Note the asymmetry in what the
+/// controller can enumerate: it holds a [Group] catalog but *not* a principal
+/// roster — it stores principal ids only. [membersOf] therefore reports just
+/// the principals it has seen in an assignment; supply your own roster when you
+/// need to offer principals who are not yet members of anything.
+///
 /// This controller is **UI-only**: it never talks to a backend. Consumers wire
 /// its mutations to their own persistence layer (REST, GraphQL, Firestore,
 /// etc.) — typically by calling the controller optimistically and then
@@ -180,6 +196,68 @@ class GroupManagerController extends ChangeNotifier {
       _assignments[principalId] = next;
     }
     notifyListeners();
+  }
+
+  /// Returns the ids of the principals that belong to [groupId].
+  ///
+  /// The reverse of [groupsFor], and the read side of the group-centric widgets
+  /// ([MemberAssignmentField], [MemberPicker], [GroupMembersView]).
+  ///
+  /// Only principals the controller has *seen* — those with at least one
+  /// assignment — can appear here; it stores ids, not a roster, so a principal
+  /// who belongs to no group is unknown to it. Pair this with your own roster
+  /// when offering members to add.
+  ///
+  /// The returned set is an unmodifiable snapshot; mutate membership through
+  /// [assign], [unassign], or [setMembers].
+  Set<String> membersOf(String groupId) => Set<String>.unmodifiable(<String>{
+    for (final MapEntry(key: principalId, value: memberships)
+        in _assignments.entries)
+      if (memberships.contains(groupId)) principalId,
+  });
+
+  /// Number of principals in [groupId].
+  ///
+  /// Cheaper than `membersOf(groupId).length` — it counts without building the
+  /// intermediate set, so it is safe to call while building a list of rows.
+  int memberCount(String groupId) {
+    var count = 0;
+    for (final memberships in _assignments.values) {
+      if (memberships.contains(groupId)) count++;
+    }
+    return count;
+  }
+
+  /// Replaces [groupId]'s entire membership with [principalIds].
+  ///
+  /// The mirror of [setAssignments]: principals in [principalIds] are added to
+  /// the group, and current members absent from it are removed. Each
+  /// principal's *other* group memberships are untouched — this rewrites one
+  /// column, not one row. A principal left with no memberships is dropped
+  /// entirely, matching [unassign]. Passing an empty set empties the group.
+  ///
+  /// Does nothing if [groupId] is not in the catalog, mirroring how
+  /// [setAssignments] ignores unknown group ids. Fires at most one
+  /// [notifyListeners], and none if nothing changed.
+  void setMembers(String groupId, Set<String> principalIds) {
+    if (!_groups.containsKey(groupId)) return;
+
+    var changed = false;
+    // Remove first, so a principal being dropped can't be re-added by the loop
+    // below and vice versa.
+    _assignments.removeWhere((principalId, memberships) {
+      if (principalIds.contains(principalId)) return false;
+      if (memberships.remove(groupId)) changed = true;
+      return memberships.isEmpty;
+    });
+    for (final principalId in principalIds) {
+      final memberships = _assignments.putIfAbsent(
+        principalId,
+        () => <String>{},
+      );
+      if (memberships.add(groupId)) changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   /// Adds every principal in [principalIds] to every group in [groupIds].
