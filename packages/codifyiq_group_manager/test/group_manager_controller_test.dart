@@ -761,6 +761,92 @@ void main() {
       expect(find.text('+1 more'), findsOneWidget);
     });
 
+    testWidgets('transitions its size when a chip is removed', (tester) async {
+      Widget fieldWith(Set<String> selected, {Duration? duration}) =>
+          MaterialApp(
+            home: Scaffold(
+              body: GroupAssignmentField(
+                groups: const [
+                  Group(id: 'a', name: 'Alpha'),
+                  Group(id: 'b', name: 'Beta'),
+                  Group(id: 'c', name: 'Gamma'),
+                ],
+                selected: selected,
+                onChanged: _noop,
+                sizeAnimationDuration:
+                    duration ??
+                    GroupAssignmentField.defaultSizeAnimationDuration,
+              ),
+            ),
+          );
+
+      final chipArea = find
+          .descendant(
+            of: find.byType(GroupAssignmentField),
+            matching: find.byType(AnimatedSize),
+          )
+          .first;
+
+      await tester.pumpWidget(fieldWith(const {'a', 'b', 'c'}));
+      final wideWidth = tester.getSize(chipArea).width;
+
+      await tester.pumpWidget(fieldWith(const {'a'}));
+      await tester.pump(const Duration(milliseconds: 16));
+      final midWidth = tester.getSize(chipArea).width;
+
+      await tester.pumpAndSettle();
+      final narrowWidth = tester.getSize(chipArea).width;
+
+      // Mid-flight the field is still between its old and new widths rather
+      // than having snapped to the latter on the first frame.
+      expect(narrowWidth, lessThan(wideWidth));
+      expect(midWidth, greaterThan(narrowWidth));
+      expect(midWidth, lessThanOrEqualTo(wideWidth));
+
+      // Duration.zero opts out entirely: no animator in the tree, and the
+      // chips land at their new width on the first frame.
+      await tester.pumpWidget(fieldWith(const {'a', 'b', 'c'}));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(fieldWith(const {'a'}, duration: Duration.zero));
+      await tester.pump();
+
+      expect(find.byType(AnimatedSize), findsNothing);
+      expect(tester.getSize(find.byType(Wrap)).width, narrowWidth);
+    });
+
+    testWidgets('skips the size transition when the platform asks for '
+        'reduced motion', (tester) async {
+      Widget fieldWith(Set<String> selected) => MaterialApp(
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: GroupAssignmentField(
+              groups: const [
+                Group(id: 'a', name: 'Alpha'),
+                Group(id: 'b', name: 'Beta'),
+                Group(id: 'c', name: 'Gamma'),
+              ],
+              selected: selected,
+              onChanged: _noop,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(fieldWith(const {'a', 'b', 'c'}));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(fieldWith(const {'a'}));
+      await tester.pump();
+
+      // The default duration is in force, but reduced motion overrides it:
+      // no animator, and the chips are already at their settled width.
+      expect(find.byType(AnimatedSize), findsNothing);
+      final settled = tester.getSize(find.byType(Wrap)).width;
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(Wrap)).width, settled);
+    });
+
     testWidgets('maxVisibleChips is inert when the count fits', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
