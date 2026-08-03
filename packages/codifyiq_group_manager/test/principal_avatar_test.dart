@@ -200,6 +200,51 @@ void main() {
       expect(provider, const AssetImage('cached.png'));
     });
 
+    testWidgets('every photo source is forwarded to UserAvatar in precedence '
+        'order', (tester) async {
+      final bytes = Uint8List.fromList(const [1, 2, 3]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PrincipalAvatar(
+              principal: Principal(
+                id: 'ada',
+                name: 'Ada Lovelace',
+                imageUrl: 'https://example.com/ada.png',
+                photoBytes: bytes,
+                photoBase64: 'aGVsbG8=',
+              ),
+            ),
+          ),
+        ),
+      );
+      // Precedence itself is UserAvatar's to enforce — what matters here is
+      // that no source is dropped on the floor on the way to it.
+      final avatar = tester.widget<UserAvatar>(find.byType(UserAvatar));
+      expect(avatar.photoBytes, bytes);
+      expect(avatar.photoBase64, 'aGVsbG8=');
+      expect(avatar.photoUrl, 'https://example.com/ada.png');
+    });
+
+    testWidgets('a base64 photo renders without the caller decoding it', (
+      tester,
+    ) async {
+      const redPixelPng =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ'
+          'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      final provider = await pumpAndReadProvider(
+        tester,
+        const PrincipalAvatar(
+          principal: Principal(
+            id: 'ada',
+            name: 'Ada Lovelace',
+            photoBase64: redPixelPng,
+          ),
+        ),
+      );
+      expect(provider, isA<MemoryImage>());
+    });
+
     testWidgets('Principal.imageProvider wins over the URL and the builder', (
       tester,
     ) async {

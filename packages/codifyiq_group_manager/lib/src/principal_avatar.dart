@@ -17,11 +17,12 @@ typedef PrincipalAvatarImageProviderBuilder = UserAvatarImageProviderBuilder;
 
 /// A small circular badge representing a [Principal].
 ///
-/// Falls back in three steps: the principal's photo — [Principal.imageProvider]
-/// if supplied, otherwise [Principal.imageUrl] — when it loads, then its
-/// [Principal.icon], then the initials derived from its [Principal.name]. A
-/// photo that fails to load reverts to the step below it rather than leaving an
-/// empty circle.
+/// Falls back in three steps: the principal's photo — from whichever of
+/// [Principal.imageProvider], [Principal.photoBytes], [Principal.photoBase64],
+/// or [Principal.imageUrl] is supplied, in that order of precedence — when it
+/// loads, then its [Principal.icon], then the initials derived from its
+/// [Principal.name]. A photo that fails to load reverts to the step below it
+/// rather than leaving an empty circle.
 ///
 /// This is a thin wrapper over `UserAvatar` from the sibling
 /// `codifyiq_user_avatar` package — the same widget your profile and member
@@ -64,7 +65,8 @@ class PrincipalAvatar extends StatelessWidget {
   /// Builds the [ImageProvider] for [Principal.imageUrl]. When omitted, a plain
   /// [NetworkImage] is used. Supply this to share a disk-backed cache with the
   /// rest of the app so the same member's photo is not refetched per screen.
-  /// Ignored when the principal carries a [Principal.imageProvider] of its own.
+  /// Ignored when the principal carries an in-memory photo of its own, which
+  /// needs no fetching.
   ///
   /// Pass a *stable* reference — a top-level or static function, or a callback
   /// held in state — rather than a closure allocated inside `build`. The
@@ -84,6 +86,8 @@ class PrincipalAvatar extends StatelessWidget {
 
     return UserAvatar(
       photoUrl: principal.imageUrl,
+      photoBytes: principal.photoBytes,
+      photoBase64: principal.photoBase64,
       imageProvider: principal.imageProvider,
       // Initials and the person-glyph fallback are UserAvatar's to derive —
       // a member's avatar must not read differently here than on a profile or

@@ -140,23 +140,23 @@ final allUsers = [
 [codifyiq_user_avatar](../codifyiq_user_avatar) — it adds the group palette tint and the
 service-account `icon`, and leaves photos, initials, and the person-glyph fallback to
 `UserAvatar`. A user therefore looks the same here as on the rest of your screens, rather
-than being a second interpretation of the same avatar. If a photo isn't a fetchable URL —
-base64 bytes from your directory, a cached file, a bundled asset — hand `Principal` a
-provider instead of a URL:
+than being a second interpretation of the same avatar. A photo that isn't a fetchable URL
+goes on the `Principal` directly, in whichever shape you already hold it:
 
 ```dart
 Principal(
   id: user.uid,
   name: user.displayName,
-  imageProvider: MemoryImage(base64Decode(user.photoBase64)),
+  photoBase64: user.photoBase64,   // or: photoBytes: user.photoBytes
 );
 ```
 
-Hold that provider in state rather than allocating it inside `build` — `MemoryImage`
-compares its bytes by identity, so a fresh instance per frame re-decodes the photo. For
-photos that *are* URLs behind an authenticated or cached endpoint, pass `avatarHeaders` /
-`avatarImageProviderBuilder` to `GroupMembersView`, `MemberPicker`, or
-`MemberAssignmentField` — the same builder you already use with `UserAvatar`.
+Either can be built inline in `build` — the avatar owns the decode and reuses it while the
+bytes are unchanged, and `Principal` compares bytes by value, so a member list doesn't
+churn. `imageProvider` is still there for a `FileImage` or `AssetImage`; that one needs a
+stable instance. For photos that *are* URLs behind an authenticated or cached endpoint,
+pass `avatarHeaders` / `avatarImageProviderBuilder` to `GroupMembersView`, `MemberPicker`,
+or `MemberAssignmentField` — the same builder you already use with `UserAvatar`.
 
 For a single group inline on a form (rather than a whole screen), use
 `MemberAssignmentField` — the exact counterpart of `GroupAssignmentField`, with the same

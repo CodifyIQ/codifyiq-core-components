@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
@@ -25,8 +23,8 @@ import 'package:flutter/material.dart';
 /// icon on hover (or permanently once selected), the Google Contacts pattern
 /// for starting a multi-select — and ends with a kebab menu offering
 /// "Delete" for that one member. Those avatars show each member's photo from
-/// whichever source their `Principal` carries (a URL, or in-memory bytes via
-/// `imageProvider`), exactly as the group's member list does, with a footer
+/// whichever source their `Principal` carries (a URL, or a base64
+/// payload via `photoBase64`), exactly as the group's member list does, with a footer
 /// note under the list spelling the sources out. A [BulkSelectionBar] above the list is
 /// always present, at a fixed height, so checking or clearing members never
 /// reflows the list: its Gmail-style selector (tristate checkbox + "All"/
@@ -119,55 +117,46 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
   /// the folders depend on can't be deleted.
   static const Set<String> _lockedGroups = {'admins'};
 
-  /// A tiny in-memory PNG (a solid red 1×1 swatch), decoded once and held as a
-  /// stable [MemoryImage] instance.
-  ///
-  /// Decoding here rather than inside `build` is what makes
-  /// [Principal.imageProvider] usable in a list: `MemoryImage` compares its
-  /// bytes by identity, so a `MemoryImage(base64Decode(...))` allocated per
-  /// frame would make every [Principal] compare unequal and re-decode the photo
-  /// on each rebuild.
-  static final MemoryImage _inMemoryPhoto = MemoryImage(
-    base64Decode(
+  /// A tiny PNG (a solid red 1×1 swatch) as base64 — the shape a photo arrives
+  /// in from an OAuth provider or a JSON API. Handed over as a string rather
+  /// than decoded here, so the roster stays `const`: the avatar owns the decode
+  /// and holds the result stable across rebuilds.
+  static const String _inMemoryPhoto =
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ'
-      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    ),
-  );
+      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-  // Not `const`: a decoded photo can't be, which is the constraint every
-  // caller of Principal.imageProvider runs into.
-  static final List<Principal> _seedRoster = [
+  static const List<Principal> _seedRoster = [
     // A real photo, so the member surfaces exercise the image path rather than
     // only the initials fallback.
-    const Principal(
+    Principal(
       id: 'ada',
       name: 'Ada Lovelace',
       description: 'ada@example.com',
       imageUrl: 'https://picsum.photos/id/1027/200/200',
     ),
-    const Principal(
+    Principal(
       id: 'grace',
       name: 'Grace Hopper',
       description: 'grace@example.com',
       imageUrl: 'https://picsum.photos/id/1005/200/200',
     ),
-    // A photo that never was a URL — bytes straight from memory, the shape a
-    // base64 payload from a directory or backend takes. It renders through the
-    // same circular clip as the network photos above.
+    // A photo that never was a URL — base64 bytes, the shape a payload from a
+    // directory or backend takes. It renders through the same circular clip as
+    // the network photos above.
     Principal(
       id: 'katherine',
       name: 'Katherine Johnson',
       description: 'katherine@example.com',
-      imageProvider: _inMemoryPhoto,
+      photoBase64: _inMemoryPhoto,
     ),
     // A broken URL, so the fall-back-to-initials path stays visible too.
-    const Principal(
+    Principal(
       id: 'linus',
       name: 'Linus Torvalds',
       description: 'linus@example.com',
       imageUrl: 'https://invalid.example.com/nope.png',
     ),
-    const Principal(
+    Principal(
       id: 'margaret',
       // A deliberately long name, so the single-line row's fit calculation is
       // visible under real pressure — the label eats into the width left over
@@ -622,6 +611,8 @@ class _MembersTabState extends State<_MembersTab> {
                                       // same viewed from either end of the
                                       // relation.
                                       photoUrl: user.imageUrl,
+                                      photoBase64: user.photoBase64,
+                                      photoBytes: user.photoBytes,
                                       imageProvider: user.imageProvider,
                                       selected: _selected.contains(user.id),
                                       onChanged: (checked) => setState(() {
@@ -838,8 +829,8 @@ class _AvatarNote extends StatelessWidget {
         'Every avatar here is the same `UserAvatar` this group\'s member list '
         'renders, fed from the `Principal` you supply — so a member looks the '
         'same viewed from either end of the relation. Ada and Grace load a '
-        'photo URL; Katherine\'s photo is base64 bytes handed over as an '
-        '`imageProvider`, never a URL at all; Linus\'s URL is broken, so he '
+        'photo URL; Katherine\'s photo is a base64 payload handed over as '
+        '`photoBase64`, never a URL at all; Linus\'s URL is broken, so he '
         'falls back to initials; Margaret has no photo. Which source a photo '
         "comes from is your app's decision — for one behind an authenticated "
         "endpoint, or one already in your app's cache, pass `avatarHeaders` / "

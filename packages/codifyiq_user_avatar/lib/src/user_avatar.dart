@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -13,10 +15,10 @@ typedef UserAvatarImageProviderBuilder =
 
 /// A circular user avatar with a graceful fallback to initials or an icon.
 ///
-/// Renders a [CircleAvatar] containing — in priority order — an explicit
-/// [imageProvider] or a photo loaded from [photoUrl] (if either is supplied
-/// and loads successfully), a custom [fallbackChild] widget, initials derived
-/// from [displayName] or [email], or a generic [Icons.person] glyph.
+/// Renders a [CircleAvatar] containing — in priority order — a photo from
+/// [imageProvider], [photoBytes], [photoBase64], or [photoUrl] (if any is
+/// supplied and loads successfully), a custom [fallbackChild] widget, initials
+/// derived from [displayName] or [email], or a generic [Icons.person] glyph.
 ///
 /// Caching is intentionally pluggable. By default the photo is loaded via
 /// [NetworkImage] with no caching beyond Flutter's in-memory image cache. To
@@ -35,18 +37,25 @@ typedef UserAvatarImageProviderBuilder =
 /// )
 /// ```
 ///
+/// For a photo that is already in memory, pass [photoBytes] or [photoBase64]
+/// rather than building an [ImageProvider]: this widget owns the resulting
+/// [MemoryImage] and holds it stable while the bytes are unchanged, so an
+/// avatar in a list that rebuilds does not re-decode its photo.
+///
 /// Theming follows Material 3 — the fallback background defaults to
 /// [ColorScheme.secondary] and the initials/icon to [ColorScheme.onSecondary].
 class UserAvatar extends StatefulWidget {
   /// Creates a [UserAvatar].
   ///
-  /// At least one of [imageProvider], [photoUrl], [displayName], or [email]
-  /// should be provided for the avatar to render meaningful content; with none
-  /// of them, the generic person icon is shown.
+  /// At least one of [imageProvider], [photoBytes], [photoBase64], [photoUrl],
+  /// [displayName], or [email] should be provided for the avatar to render
+  /// meaningful content; with none of them, the generic person icon is shown.
   const UserAvatar({
     super.key,
     this.photoUrl,
     this.imageProvider,
+    this.photoBytes,
+    this.photoBase64,
     this.displayName,
     this.email,
     this.radius = 20.0,
@@ -58,27 +67,51 @@ class UserAvatar extends StatefulWidget {
     this.semanticLabel,
   });
 
-  /// URL of the user's profile photo. When null or empty (and [imageProvider]
-  /// is also null), the fallback is rendered immediately.
+  /// URL of the user's profile photo. Used when no [imageProvider],
+  /// [photoBytes], or [photoBase64] is supplied; when it too is null or empty,
+  /// the fallback is rendered immediately.
   final String? photoUrl;
 
   /// A ready-made [ImageProvider] for the avatar photo, used in place of
-  /// [photoUrl] and [imageProviderBuilder].
+  /// [photoBytes], [photoBase64], [photoUrl], and [imageProviderBuilder].
   ///
-  /// Use this for non-URL image sources such as [MemoryImage], [FileImage], or
-  /// [AssetImage]. When non-null it takes precedence over [photoUrl] /
-  /// [imageProviderBuilder] (which are then ignored) and flows through the
-  /// same circular clip, [BoxFit.cover] sizing, and error-to-initials fallback
-  /// as a network photo.
+  /// Use this for image sources this widget has no dedicated parameter for,
+  /// such as [FileImage] or [AssetImage]. When non-null it takes precedence
+  /// over the other photo sources (which are then ignored) and flows through
+  /// the same circular clip, [BoxFit.cover] sizing, and error-to-initials
+  /// fallback as a network photo.
   ///
-  /// In list contexts (e.g. a chat roster) pass a *stable* provider instance
-  /// so Flutter's image cache can dedupe it across rebuilds. This matters most
-  /// for [MemoryImage], whose equality compares the underlying bytes by
-  /// identity — hold the [MemoryImage] (or its `Uint8List`) in state rather
-  /// than allocating it inside `build`, or the image re-decodes every frame.
-  /// [NetworkImage] and [FileImage] compare by value, so they are safe to
-  /// recreate inline.
+  /// Providers are compared by value across rebuilds, including the bytes of a
+  /// [MemoryImage] (on its own or wrapped in a [ResizeImage]), so recreating
+  /// one inline in `build` does not force a re-decode. For in-memory photos
+  /// prefer [photoBytes] or [photoBase64], which let the widget own the
+  /// [MemoryImage] instance and keep it stable for Flutter's [ImageCache].
   final ImageProvider? imageProvider;
+
+  /// Raw encoded bytes of the user's profile photo (PNG, JPEG, …), rendered
+  /// via an internally managed [MemoryImage].
+  ///
+  /// Used when [imageProvider] is null, and takes precedence over
+  /// [photoBase64] and [photoUrl]. The bytes are compared by value, and the
+  /// underlying [MemoryImage] — and therefore its decoded frame in Flutter's
+  /// [ImageCache] — is reused whenever they are unchanged, so allocating a
+  /// fresh list inside `build` is safe. Holding one list in state is free
+  /// (the comparison short-circuits on identity); a fresh copy costs a
+  /// byte-by-byte comparison per rebuild, still far cheaper than a decode but
+  /// worth avoiding for large photos in a frequently rebuilt list.
+  final Uint8List? photoBytes;
+
+  /// The user's profile photo as a base64-encoded string — the shape a photo
+  /// usually arrives in from an OAuth provider or a JSON API.
+  ///
+  /// Used when [imageProvider] and [photoBytes] are null, and takes precedence
+  /// over [photoUrl]. A `data:` URI prefix (e.g.
+  /// `data:image/png;base64,iVBOR…`) is accepted and stripped. The string is
+  /// compared as a string across rebuilds, so the decoded frame survives them.
+  /// A string that is not valid base64 never throws — it is treated as no
+  /// photo at all, so the avatar falls through to [photoUrl] if one was given
+  /// and to initials otherwise.
+  final String? photoBase64;
 
   /// Display name used to derive initials when [photoUrl] is unavailable or
   /// fails to load. Two-word names yield first+last initials; single-word
@@ -176,7 +209,9 @@ class _UserAvatarState extends State<UserAvatar> {
   void didUpdateWidget(UserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.photoUrl != widget.photoUrl ||
-        oldWidget.imageProvider != widget.imageProvider ||
+        !_sameProvider(oldWidget.imageProvider, widget.imageProvider) ||
+        !listEquals(oldWidget.photoBytes, widget.photoBytes) ||
+        oldWidget.photoBase64 != widget.photoBase64 ||
         !mapEquals(oldWidget.headers, widget.headers) ||
         oldWidget.imageProviderBuilder != widget.imageProviderBuilder) {
       setState(() {
@@ -186,16 +221,63 @@ class _UserAvatarState extends State<UserAvatar> {
     }
   }
 
+  /// Whether two providers describe the same image, treating [MemoryImage]
+  /// bytes by value.
+  ///
+  /// `MemoryImage`'s own `==` compares its `Uint8List` by identity, so an
+  /// equal-but-newly-allocated provider would otherwise read as a change and
+  /// force a re-decode (it also misses [ImageCache], which is keyed on the
+  /// same equality). [ResizeImage] is unwrapped first, since its equality
+  /// delegates to the provider it wraps — a natural thing to wrap an avatar
+  /// photo in, to decode it at display size.
+  static bool _sameProvider(ImageProvider? a, ImageProvider? b) {
+    if (a is ResizeImage && b is ResizeImage) {
+      return a.width == b.width &&
+          a.height == b.height &&
+          a.allowUpscaling == b.allowUpscaling &&
+          a.policy == b.policy &&
+          _sameProvider(a.imageProvider, b.imageProvider);
+    }
+    if (a is MemoryImage && b is MemoryImage) {
+      return a.scale == b.scale && listEquals(a.bytes, b.bytes);
+    }
+    return a == b;
+  }
+
   ImageProvider? _buildImage() {
-    // An explicit provider wins — it may be a non-URL source (MemoryImage,
-    // FileImage, …), so it is not gated on photoUrl.
+    // An explicit provider wins — it may be a non-URL source (FileImage,
+    // AssetImage, …), so it is not gated on photoUrl.
     if (widget.imageProvider != null) return widget.imageProvider;
+    final bytes = widget.photoBytes ?? _decodeBase64(widget.photoBase64);
+    if (bytes != null) {
+      // Reuse the existing MemoryImage when the bytes are unchanged, so the
+      // provider stays identical for ImageCache across rebuilds.
+      final current = _image;
+      if (current is MemoryImage && listEquals(current.bytes, bytes)) {
+        return current;
+      }
+      return MemoryImage(bytes);
+    }
     final url = widget.photoUrl;
     if (url == null || url.isEmpty) return null;
     final builder = widget.imageProviderBuilder;
     return builder != null
         ? builder(url, widget.headers)
         : NetworkImage(url, headers: widget.headers);
+  }
+
+  /// Decodes [source], tolerating a `data:` URI prefix. Returns null when the
+  /// string is absent, empty, or not valid base64 — the avatar then falls back
+  /// to initials rather than throwing.
+  static Uint8List? _decodeBase64(String? source) {
+    if (source == null || source.isEmpty) return null;
+    final comma = source.startsWith('data:') ? source.indexOf(',') : -1;
+    final payload = comma == -1 ? source : source.substring(comma + 1);
+    try {
+      return base64Decode(payload);
+    } on FormatException {
+      return null;
+    }
   }
 
   @override
