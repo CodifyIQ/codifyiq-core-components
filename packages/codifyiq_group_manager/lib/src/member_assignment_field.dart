@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'assignment_field.dart';
+import 'group_assignment_field.dart';
 import 'member_picker.dart';
 import 'principal.dart';
 import 'principal_avatar.dart';
@@ -69,6 +70,8 @@ class MemberAssignmentField extends StatelessWidget {
     this.emptyHint = 'No members yet',
     this.maxVisibleChips,
     this.singleLine = false,
+    this.sizeAnimationDuration =
+        GroupAssignmentField.defaultSizeAnimationDuration,
     this.avatarHeaders,
     this.avatarImageProviderBuilder,
   }) : assert(
@@ -125,6 +128,10 @@ class MemberAssignmentField extends StatelessWidget {
   /// [GroupAssignmentField.singleLine] for the full behavior.
   final bool singleLine;
 
+  /// How long the field takes to grow or shrink when its chips change. See
+  /// [GroupAssignmentField.sizeAnimationDuration] for the full behavior.
+  final Duration sizeAnimationDuration;
+
   /// HTTP headers forwarded to each member avatar's image provider, in the
   /// chips and in the picker — see [PrincipalAvatar.headers].
   final Map<String, String>? avatarHeaders;
@@ -169,6 +176,7 @@ class MemberAssignmentField extends StatelessWidget {
       emptyHint: emptyHint,
       maxVisibleChips: maxVisibleChips,
       singleLine: singleLine,
+      sizeAnimationDuration: sizeAnimationDuration,
     );
   }
 }

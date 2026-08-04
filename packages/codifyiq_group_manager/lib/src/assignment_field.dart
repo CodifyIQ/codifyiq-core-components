@@ -34,6 +34,7 @@ class AssignmentField extends StatefulWidget {
     this.emptyHint = 'Nothing assigned',
     this.maxVisibleChips,
     this.singleLine = false,
+    required this.sizeAnimationDuration,
   }) : assert(
          maxVisibleChips == null || maxVisibleChips > 0,
          'maxVisibleChips must be positive',
@@ -79,6 +80,10 @@ class AssignmentField extends StatefulWidget {
 
   /// Lays the label, chips, and edit button out on a single row.
   final bool singleLine;
+
+  /// How long the field takes to grow or shrink when its chips change.
+  /// [Duration.zero] resizes instantly.
+  final Duration sizeAnimationDuration;
 
   @override
   State<AssignmentField> createState() => _AssignmentFieldState();
@@ -128,6 +133,29 @@ class _AssignmentFieldState extends State<AssignmentField> {
     onPressed: () => _openPicker(context),
   );
 
+  /// Transitions the field between sizes as chips come and go, so adding or
+  /// removing one — or expanding the overflow — reads as a deliberate response
+  /// to the edit rather than a one-frame snap of the surrounding layout. Every
+  /// size change the field owns is inside: the chip flow itself, the
+  /// empty-hint swap, and the expanded overflow row.
+  ///
+  /// Skipped entirely when the platform asks for reduced motion, so a user who
+  /// has turned system animations off doesn't get one the caller never opted
+  /// into — same result as passing [AssignmentField.sizeAnimationDuration] of
+  /// [Duration.zero].
+  Widget _animateSize(BuildContext context, Widget child) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : widget.sizeAnimationDuration;
+    if (duration == Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeInOut,
+      alignment: AlignmentDirectional.topStart,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return widget.singleLine
@@ -170,32 +198,36 @@ class _AssignmentFieldState extends State<AssignmentField> {
           ),
           const SizedBox(height: 8),
         ],
-        if (selectedEntries.isEmpty)
-          Text(
-            widget.emptyHint,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (final entry in visibleEntries) _chip(entry),
-              if (hiddenCount > 0)
-                ActionChip(
-                  label: Text('+$hiddenCount more'),
-                  onPressed: () => setState(() => _expanded = true),
+        _animateSize(
+          context,
+          selectedEntries.isEmpty
+              ? Text(
+                  widget.emptyHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    for (final entry in visibleEntries) _chip(entry),
+                    if (hiddenCount > 0)
+                      ActionChip(
+                        label: Text('+$hiddenCount more'),
+                        onPressed: () => setState(() => _expanded = true),
+                      ),
+                    if (_expanded &&
+                        cap != null &&
+                        selectedEntries.length > cap)
+                      ActionChip(
+                        label: const Text('Show less'),
+                        onPressed: () => setState(() => _expanded = false),
+                      ),
+                  ],
                 ),
-              if (_expanded && cap != null && selectedEntries.length > cap)
-                ActionChip(
-                  label: const Text('Show less'),
-                  onPressed: () => setState(() => _expanded = false),
-                ),
-            ],
-          ),
+        ),
       ],
     );
   }
@@ -288,29 +320,36 @@ class _AssignmentFieldState extends State<AssignmentField> {
           ],
         );
 
-        if (!_expanded || hiddenEntries.isEmpty) return row;
+        // The animation wraps the built result rather than the LayoutBuilder,
+        // so the chip-fitting math above still sees the field's real width.
+        if (!_expanded || hiddenEntries.isEmpty) {
+          return _animateSize(context, row);
+        }
 
         // Expanded: leave the row above exactly as it was and append a second
         // row with the entries that didn't fit, wrapping onto as many lines as
         // needed, plus a "Show less" affordance to collapse back.
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            row,
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final entry in hiddenEntries) _chip(entry),
-                ActionChip(
-                  label: const Text('Show less'),
-                  onPressed: () => setState(() => _expanded = false),
-                ),
-              ],
-            ),
-          ],
+        return _animateSize(
+          context,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              row,
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final entry in hiddenEntries) _chip(entry),
+                  ActionChip(
+                    label: const Text('Show less'),
+                    onPressed: () => setState(() => _expanded = false),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );

@@ -103,10 +103,18 @@ class GroupAssignmentField extends StatelessWidget {
     this.emptyHint = 'No groups assigned',
     this.maxVisibleChips,
     this.singleLine = false,
+    this.sizeAnimationDuration = defaultSizeAnimationDuration,
   }) : assert(
          maxVisibleChips == null || maxVisibleChips > 0,
          'maxVisibleChips must be positive',
        );
+
+  /// The default [sizeAnimationDuration] for both this field and
+  /// [MemberAssignmentField] — long enough to read as a transition, short
+  /// enough not to lag an edit.
+  static const Duration defaultSizeAnimationDuration = Duration(
+    milliseconds: 180,
+  );
 
   /// The groups that may be assigned to the target. Pass the full catalog, or a
   /// scoped subset (e.g. only the signed-in user's own groups) to limit choices.
@@ -161,6 +169,15 @@ class GroupAssignmentField extends StatelessWidget {
   /// class doc for details.
   final bool singleLine;
 
+  /// How long the field takes to grow or shrink when its chips change — adding
+  /// or removing a group, swapping the empty hint for the first chip, or
+  /// expanding the "+N more" overflow. Defaults to a short ease; pass
+  /// [Duration.zero] to resize instantly.
+  ///
+  /// Ignored — and the resize is instant — when the platform asks for reduced
+  /// motion, so this never overrides a user's accessibility preference.
+  final Duration sizeAnimationDuration;
+
   @override
   Widget build(BuildContext context) {
     final byId = {for (final group in groups) group.id: group};
@@ -190,6 +207,7 @@ class GroupAssignmentField extends StatelessWidget {
       emptyHint: emptyHint,
       maxVisibleChips: maxVisibleChips,
       singleLine: singleLine,
+      sizeAnimationDuration: sizeAnimationDuration,
     );
   }
 }
