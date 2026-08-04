@@ -28,6 +28,20 @@ void main() {
       expect(UserAvatar.initialsFor(displayName: 'Ada (PhD) Lovelace'), 'AL');
     });
 
+    test('square- and curly-bracketed qualifiers are stripped too', () {
+      expect(UserAvatar.initialsFor(displayName: 'Alice [Contractor]'), 'AL');
+      expect(UserAvatar.initialsFor(displayName: 'Alice {External}'), 'AL');
+      // Leading qualifier — the remaining words still supply both initials.
+      expect(UserAvatar.initialsFor(displayName: '[Ext] Ada Lovelace'), 'AL');
+      // Mixed styles in one name.
+      expect(
+        UserAvatar.initialsFor(displayName: 'Ada (PhD) [Ext] Lovelace'),
+        'AL',
+      );
+      // Qualifier on a single-word name → first two of the remaining word.
+      expect(UserAvatar.initialsFor(displayName: 'Linus [Admin]'), 'LI');
+    });
+
     test('name that is entirely parenthetical falls through to email', () {
       expect(
         UserAvatar.initialsFor(

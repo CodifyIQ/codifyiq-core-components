@@ -82,8 +82,8 @@ class UserAvatar extends StatefulWidget {
 
   /// Display name used to derive initials when [photoUrl] is unavailable or
   /// fails to load. Two-word names yield first+last initials; single-word
-  /// names yield the first two characters. Parenthetical qualifiers such as
-  /// `"(Contractor)"` are ignored — see [initialsFor].
+  /// names yield the first two characters. Bracketed qualifiers such as
+  /// `"(Contractor)"` or `"[Acme Corp]"` are ignored — see [initialsFor].
   final String? displayName;
 
   /// Email address used to derive initials when [displayName] is not
@@ -119,24 +119,28 @@ class UserAvatar extends StatefulWidget {
   /// string `'User avatar'`.
   final String? semanticLabel;
 
+  /// Matches a bracketed qualifier — `(…)`, `[…]`, or `{…}` — anywhere in a
+  /// display name. Compiled once; [initialsFor] runs on every avatar build.
+  static final RegExp _qualifierPattern = RegExp(
+    r'\([^)]*\)|\[[^\]]*\]|\{[^}]*\}',
+  );
+
   /// Computes the initials that the fallback would render for the given
   /// [displayName] and [email]. Exposed for callers that want to mirror the
   /// avatar's initials elsewhere in their UI (e.g. in a menu header).
   ///
-  /// Parenthetical qualifiers in [displayName] — e.g. `"(Contractor)"`,
-  /// `"(Acme Corp)"`, common in enterprise and government directories — are
-  /// stripped before deriving initials, so `"Java Joe (Contractor)"` yields
-  /// `"JJ"` rather than `"J("`. A name that is *entirely* parenthetical falls
-  /// through to the [email].
+  /// Bracketed qualifiers in [displayName] — e.g. `"(Contractor)"`,
+  /// `"[Acme Corp]"`, `"{External}"`, common in enterprise and government
+  /// directories — are stripped before deriving initials, so
+  /// `"Java Joe (Contractor)"` yields `"JJ"` rather than `"J("`. A name that is
+  /// *entirely* a qualifier falls through to the [email].
   static String initialsFor({String? displayName, String? email}) {
     String firstGrapheme(String s) => s.characters.first;
     String firstTwoGraphemes(String s) => s.characters.take(2).toString();
 
-    // Replace "(…)" segments with a space so they neither contribute initials
-    // nor fuse adjacent words (e.g. "A(x)B" → "A B", not "AB").
-    final cleanedName = displayName
-        ?.replaceAll(RegExp(r'\([^)]*\)'), ' ')
-        .trim();
+    // Replace bracketed segments with a space so they neither contribute
+    // initials nor fuse adjacent words (e.g. "A(x)B" → "A B", not "AB").
+    final cleanedName = displayName?.replaceAll(_qualifierPattern, ' ').trim();
 
     if (cleanedName != null && cleanedName.isNotEmpty) {
       final parts = cleanedName.split(RegExp(r'\s+'));

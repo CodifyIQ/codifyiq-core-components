@@ -1,21 +1,33 @@
+import 'dart:convert';
+
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
 import 'package:flutter/material.dart';
 
-/// Demo for [GroupManagerController], [GroupManagerView],
+/// Demo for [GroupManagerController], [GroupManagerView], [GroupMembersView],
 /// [GroupAssignmentField], [GroupBulkAssignmentDialog], [BulkSelectionBar],
 /// and [SelectableAvatarLeading] (from `codifyiq_user_avatar`).
 ///
-/// The first tab manages the group catalog (create / edit / delete). The
-/// second assigns one or more of those groups to a handful of demo users via
+/// The first tab manages the group catalog (create / edit / delete), and
+/// tapping any group row drills into a [GroupMembersView] for that group —
+/// the group-side mirror of the second tab. Membership is one relation viewed
+/// from two ends: adding Grace to "Editors" from the group's member list is
+/// the same edit as adding an "Editors" chip to Grace's row on the Members
+/// tab, and each is immediately visible from the other. That drill-down also
+/// shows a locked *member* (Ada owns "Administrators", so she can't be removed
+/// from it) — the member-side counterpart of the locked group below. The
+/// second tab assigns one or more of those groups to a handful of demo users via
 /// removable chips and a searchable picker, rendered with `singleLine: true`
 /// so each row stays compact — name, chips, and the edit button share one
 /// line, with overflow collapsing behind "+N more". Each row leads with a
 /// [SelectableAvatarLeading] — an avatar that's tappable, or swaps to a check
 /// icon on hover (or permanently once selected), the Google Contacts pattern
 /// for starting a multi-select — and ends with a kebab menu offering
-/// "Delete" for that one member. A [BulkSelectionBar] above the list is
+/// "Delete" for that one member. Those avatars show each member's photo from
+/// whichever source their `Principal` carries (a URL, or in-memory bytes via
+/// `imageProvider`), exactly as the group's member list does, with a footer
+/// note under the list spelling the sources out. A [BulkSelectionBar] above the list is
 /// always present, at a fixed height, so checking or clearing members never
 /// reflows the list: its Gmail-style selector (tristate checkbox + "All"/
 /// "None" dropdown) sits at its start, always interactive since it's how a
@@ -86,6 +98,9 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
       // window width, so the exact count varies).
       'ada': {'admins', 'editors', 'viewers', 'billing'},
       'grace': {'editors'},
+      // Katherine's photo comes from memory rather than a URL, so the group's
+      // member list shows that path rendering beside the network ones.
+      'katherine': {'viewers'},
       // A deliberately long name, so the single-line row's fit calculation is
       // visible under real pressure — the label eats into the width left over
       // for chips.
@@ -104,17 +119,92 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
   /// the folders depend on can't be deleted.
   static const Set<String> _lockedGroups = {'admins'};
 
-  static const List<({String id, String name})> _users = [
-    (id: 'ada', name: 'Ada Lovelace'),
-    (id: 'grace', name: 'Grace Hopper'),
-    (id: 'linus', name: 'Linus Torvalds'),
-    (id: 'margaret', name: 'Margaret Eleanor Hamilton-Fitzgerald'),
+  /// A tiny in-memory PNG (a solid red 1×1 swatch), decoded once and held as a
+  /// stable [MemoryImage] instance.
+  ///
+  /// Decoding here rather than inside `build` is what makes
+  /// [Principal.imageProvider] usable in a list: `MemoryImage` compares its
+  /// bytes by identity, so a `MemoryImage(base64Decode(...))` allocated per
+  /// frame would make every [Principal] compare unequal and re-decode the photo
+  /// on each rebuild.
+  static final MemoryImage _inMemoryPhoto = MemoryImage(
+    base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ'
+      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    ),
+  );
+
+  // Not `const`: a decoded photo can't be, which is the constraint every
+  // caller of Principal.imageProvider runs into.
+  static final List<Principal> _seedRoster = [
+    // A real photo, so the member surfaces exercise the image path rather than
+    // only the initials fallback.
+    const Principal(
+      id: 'ada',
+      name: 'Ada Lovelace',
+      description: 'ada@example.com',
+      imageUrl: 'https://picsum.photos/id/1027/200/200',
+    ),
+    const Principal(
+      id: 'grace',
+      name: 'Grace Hopper',
+      description: 'grace@example.com',
+      imageUrl: 'https://picsum.photos/id/1005/200/200',
+    ),
+    // A photo that never was a URL — bytes straight from memory, the shape a
+    // base64 payload from a directory or backend takes. It renders through the
+    // same circular clip as the network photos above.
+    Principal(
+      id: 'katherine',
+      name: 'Katherine Johnson',
+      description: 'katherine@example.com',
+      imageProvider: _inMemoryPhoto,
+    ),
+    // A broken URL, so the fall-back-to-initials path stays visible too.
+    const Principal(
+      id: 'linus',
+      name: 'Linus Torvalds',
+      description: 'linus@example.com',
+      imageUrl: 'https://invalid.example.com/nope.png',
+    ),
+    const Principal(
+      id: 'margaret',
+      // A deliberately long name, so the single-line row's fit calculation is
+      // visible under real pressure — the label eats into the width left over
+      // for chips.
+      //
+      // The bracketed qualifier also covers the initials path: it is stripped,
+      // so this reads "MH", not "M[".
+      name: 'Margaret Eleanor Hamilton-Fitzgerald [Contractor]',
+      description: 'margaret@example.com',
+    ),
   ];
+
+  /// Permanent members: "Ada" owns the Administrators group, so she can't be
+  /// removed from it — the member-side counterpart of a locked group.
+  static const Map<String, Set<String>> _lockedMembers = {
+    'admins': {'ada'},
+  };
+
+  /// The demo roster, owned here so both the Members tab (which can delete a
+  /// member) and the group drill-down (which offers members to add) see the
+  /// same people.
+  late final List<Principal> _roster = List.of(_seedRoster);
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Deleting a member is purely a demo-roster concern — the package has no
+  /// notion of "users" to delete — but their assignments are still real
+  /// controller data, so clear those too rather than leaving them orphaned.
+  void _deleteMembers(Set<String> ids) {
+    for (final id in ids) {
+      _controller.setAssignments(id, const <String>{});
+    }
+    setState(() => _roster.removeWhere((p) => ids.contains(p.id)));
   }
 
   @override
@@ -135,11 +225,17 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
         ),
         body: TabBarView(
           children: [
-            _GroupsTab(controller: _controller, lockedGroups: _lockedGroups),
+            _GroupsTab(
+              controller: _controller,
+              roster: _roster,
+              lockedGroups: _lockedGroups,
+              lockedMembers: _lockedMembers,
+            ),
             _MembersTab(
               controller: _controller,
-              users: _users,
+              roster: _roster,
               lockedGroups: _lockedGroups,
+              onDeleteMembers: _deleteMembers,
             ),
             _FoldersTab(
               controller: _controller,
@@ -155,11 +251,66 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
 
 /// The catalog tab: a drop-in [GroupManagerView] plus a footer note explaining
 /// why "Administrators" has no delete action.
+///
+/// Tapping a row drills into that group's membership with a [GroupMembersView]
+/// — the group-side mirror of the Members tab. The two edit the same
+/// assignment data from opposite ends: add Grace to "Editors" here and her row
+/// on the Members tab gains an "Editors" chip, and vice versa.
 class _GroupsTab extends StatelessWidget {
-  const _GroupsTab({required this.controller, required this.lockedGroups});
+  const _GroupsTab({
+    required this.controller,
+    required this.roster,
+    required this.lockedGroups,
+    required this.lockedMembers,
+  });
 
   final GroupManagerController controller;
+
+  /// Everyone who could be added to a group. The controller stores ids only —
+  /// it has no roster of its own — so the caller supplies one.
+  final List<Principal> roster;
+
   final Set<String> lockedGroups;
+
+  /// Per-group members that can't be removed, e.g. a group's owner.
+  final Map<String, Set<String>> lockedMembers;
+
+  void _openMembers(BuildContext context, Group group) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: Text(group.name),
+            actions: const [BrightnessButton()],
+          ),
+          body: GroupMembersView(
+            // Keyed by id, not by the Group value: renaming the group
+            // elsewhere is reflected here rather than showing a stale name.
+            groupId: group.id,
+            roster: roster,
+            controller: controller,
+            lockedMemberIds: lockedMembers[group.id] ?? const <String>{},
+            footer: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _FooterNote(
+                lockedMembers.containsKey(group.id)
+                    ? 'Ada owns this group, so her row is locked: no remove '
+                          'action, not selectable for a bulk removal, and '
+                          'checked-and-disabled in the picker. Everyone else '
+                          'can be removed. Whether a membership is permanent '
+                          'is your app\'s decision — the widget takes a '
+                          '`lockedMemberIds` set and renders the result.'
+                    : 'Adding or removing members here writes the same '
+                          'assignment data the Members tab reads — the two '
+                          'are mirror images of one relation, not separate '
+                          'stores. Switch tabs after a change to see it.',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,9 +320,11 @@ class _GroupsTab extends StatelessWidget {
     return GroupManagerView(
       controller: controller,
       lockedIds: lockedGroups,
+      onTap: (group) => _openMembers(context, group),
       footer: const Padding(
         padding: EdgeInsets.only(top: 12),
-        child: _LockedGroupsNote(
+        child: _FooterNote(
+          'Tap any group to manage its members. '
           '"Administrators" is locked, so its row offers no delete — the '
           'permanent group your assignments depend on can\'t be removed from '
           'the catalog (it stays editable). Every other group can be deleted. '
@@ -189,15 +342,22 @@ class _GroupsTab extends StatelessWidget {
 class _MembersTab extends StatefulWidget {
   const _MembersTab({
     required this.controller,
-    required this.users,
+    required this.roster,
     required this.lockedGroups,
+    required this.onDeleteMembers,
   });
 
   final GroupManagerController controller;
-  final List<({String id, String name})> users;
+
+  /// The demo roster, owned by the parent so the group drill-down on the
+  /// Groups tab offers exactly the people this tab lists.
+  final List<Principal> roster;
 
   /// Groups that can never be bulk-removed — see [GroupBulkAssignmentDialog.showRemoval].
   final Set<String> lockedGroups;
+
+  /// Drops members from the shared roster and clears their assignments.
+  final ValueChanged<Set<String>> onDeleteMembers;
 
   @override
   State<_MembersTab> createState() => _MembersTabState();
@@ -209,10 +369,6 @@ class _MembersTabState extends State<_MembersTab> {
 
   /// Ids checked for bulk assignment. Cleared once applied.
   final Set<String> _selected = <String>{};
-
-  /// The demo roster, owned here (rather than by the parent) so deleting a
-  /// member is a local, self-contained mutation.
-  late final List<({String id, String name})> _allUsers = List.of(widget.users);
 
   @override
   void dispose() {
@@ -244,18 +400,15 @@ class _MembersTabState extends State<_MembersTab> {
   }
 
   /// Whether every currently-visible (search-filtered) member is checked.
-  bool _allVisibleSelected(List<({String id, String name})> visible) =>
-      visible.isNotEmpty && visible.every((u) => _selected.contains(u.id));
+  bool _allVisibleSelected(List<Principal> visible) =>
+      visible.isNotEmpty && visible.every((p) => _selected.contains(p.id));
 
   /// Selects every currently-visible member, or clears the selection
   /// entirely — "None" always clears everything, even a member checked
   /// while a search filter hid the rest, matching Gmail's "Select: None".
-  void _setSelection(
-    List<({String id, String name})> visible, {
-    required bool selectAll,
-  }) {
+  void _setSelection(List<Principal> visible, {required bool selectAll}) {
     if (selectAll) {
-      _selected.addAll(visible.map((u) => u.id));
+      _selected.addAll(visible.map((p) => p.id));
     } else {
       _selected.clear();
     }
@@ -266,16 +419,8 @@ class _MembersTabState extends State<_MembersTab> {
     Set<String> ids,
   ) async {
     if (!await _confirmDelete(context, ids.length)) return;
-    // Deleting a member is purely a demo-list concern — the package has no
-    // notion of "users" to delete — but their assignments are still real
-    // controller data, so clear those too rather than leaving them orphaned.
-    for (final id in ids) {
-      widget.controller.setAssignments(id, const <String>{});
-    }
-    setState(() {
-      _allUsers.removeWhere((u) => ids.contains(u.id));
-      _selected.removeAll(ids);
-    });
+    widget.onDeleteMembers(ids);
+    setState(() => _selected.removeAll(ids));
   }
 
   Future<bool> _confirmDelete(BuildContext context, int count) async {
@@ -336,8 +481,8 @@ class _MembersTabState extends State<_MembersTab> {
   Widget build(BuildContext context) {
     final q = _query.trim().toLowerCase();
     final users = q.isEmpty
-        ? _allUsers
-        : _allUsers.where((u) => u.name.toLowerCase().contains(q)).toList();
+        ? widget.roster
+        : widget.roster.where((p) => p.name.toLowerCase().contains(q)).toList();
 
     return ListenableBuilder(
       listenable: widget.controller,
@@ -437,9 +582,15 @@ class _MembersTabState extends State<_MembersTab> {
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.all(16),
-                          itemCount: users.length,
+                          // One extra item for the footer note, so it sits
+                          // directly under the last member and scrolls with
+                          // the list — matching the catalog tab's footer.
+                          itemCount: users.length + 1,
                           separatorBuilder: (_, _) => const SizedBox(height: 6),
                           itemBuilder: (context, index) {
+                            if (index == users.length) {
+                              return const _AvatarNote();
+                            }
                             final user = users[index];
                             return Card(
                               // Keyed by id, not index, so per-row state
@@ -465,6 +616,13 @@ class _MembersTabState extends State<_MembersTab> {
                                   children: [
                                     SelectableAvatarLeading(
                                       displayName: user.name,
+                                      // The same photo the group's member list
+                                      // shows for this user, from whichever
+                                      // source it came — a member looks the
+                                      // same viewed from either end of the
+                                      // relation.
+                                      photoUrl: user.imageUrl,
+                                      imageProvider: user.imageProvider,
                                       selected: _selected.contains(user.id),
                                       onChanged: (checked) => setState(() {
                                         if (checked) {
@@ -644,7 +802,7 @@ class _FoldersTab extends StatelessWidget {
                   const SizedBox(height: 12),
                 ],
                 const SizedBox(height: 4),
-                const _LockedGroupsNote(
+                const _FooterNote(
                   'Above, "Administrators" is locked: its chip has no remove '
                   'affordance here (and its catalog row offers no delete), so '
                   'admins keep access to every folder. The other chips are '
@@ -664,12 +822,43 @@ class _FoldersTab extends StatelessWidget {
   }
 }
 
-/// A low-emphasis footer note explaining that locking is an app decision, not a
-/// widget feature — shared by the catalog and folders tabs.
-class _LockedGroupsNote extends StatelessWidget {
-  const _LockedGroupsNote(this.message);
+/// The Members tab's footer note: where a member's avatar comes from.
+///
+/// Rides the list as its final item, in the same low-emphasis style as the
+/// locking notes, because the answer has the same shape — the widgets render
+/// the photo you hand them and fetch nothing you didn't ask for.
+class _AvatarNote extends StatelessWidget {
+  const _AvatarNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 12),
+      child: _FooterNote(
+        'Every avatar here is the same `UserAvatar` this group\'s member list '
+        'renders, fed from the `Principal` you supply — so a member looks the '
+        'same viewed from either end of the relation. Ada and Grace load a '
+        'photo URL; Katherine\'s photo is base64 bytes handed over as an '
+        '`imageProvider`, never a URL at all; Linus\'s URL is broken, so he '
+        'falls back to initials; Margaret has no photo. Which source a photo '
+        "comes from is your app's decision — for one behind an authenticated "
+        "endpoint, or one already in your app's cache, pass `avatarHeaders` / "
+        '`avatarImageProviderBuilder` and the load is routed through them.',
+        icon: Icons.account_circle_outlined,
+      ),
+    );
+  }
+}
+
+/// A low-emphasis footer note explaining that some behavior is the host app's
+/// decision rather than a widget feature — shared by every tab's footer.
+class _FooterNote extends StatelessWidget {
+  const _FooterNote(this.message, {this.icon = Icons.lock_outline});
 
   final String message;
+
+  /// Glyph fronting the note. Defaults to the lock the locking notes use.
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -677,11 +866,7 @@ class _LockedGroupsNote extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.lock_outline,
-          size: 16,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

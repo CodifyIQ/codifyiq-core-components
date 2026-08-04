@@ -105,9 +105,9 @@ class _NotificationCenterExampleState extends State<NotificationCenterExample> {
           label: 'Open',
           onPressed: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Opening $fileName')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Opening $fileName')));
           },
         ),
       );
@@ -203,10 +203,7 @@ class _ModeCheckbox extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Checkbox(
-            value: selected,
-            onChanged: (_) => onSelected(),
-          ),
+          Checkbox(value: selected, onChanged: (_) => onSelected()),
           Text(label),
           const SizedBox(width: 8),
         ],

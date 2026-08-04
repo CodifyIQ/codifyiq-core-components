@@ -2,10 +2,11 @@
 
 [![pub package](https://img.shields.io/pub/v/codifyiq_group_manager.svg)](https://pub.dev/packages/codifyiq_group_manager)
 
-Material 3 widgets for managing **flat authorization groups** and assigning one or more of them
-to users. Groups are intentionally simple — no nesting and no separate roles. A principal (a user,
-service account, or any subject you authorize) is just assigned one or more groups, and your app
-derives whatever permissions it likes from that membership.
+Material 3 widgets for managing **flat authorization groups** and their membership — worked from
+either end: assign groups to a user, or add members to a group. Groups are intentionally simple —
+no nesting and no separate roles. A principal (a user, service account, or any subject you
+authorize) is just assigned one or more groups, and your app derives whatever permissions it likes
+from that membership.
 
 This package is **UI-only**: it never talks to a backend. You drive the controller and wire its
 mutations to your own persistence layer.
@@ -18,7 +19,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_group_manager: ^1.1.0
+  codifyiq_group_manager: ^1.3.0
 ```
 
 ## Concepts
@@ -26,16 +27,27 @@ dependencies:
 | Piece | Role |
 |---|---|
 | `Group` | Immutable group model (id, name, optional description/color/icon). |
+| `Principal` | Immutable member model (id, name, optional description/photo/icon). A photo can be a URL or an `ImageProvider`. |
 | `GroupColor` | Theme-derived accent role (resolves against `ColorScheme`). |
 | `GroupManagerController` | UI-only state container for the catalog and assignments. |
 | `GroupManagerScope` | Inherited notifier exposing the controller to a subtree. |
 | `GroupManagerView` | Drop-in catalog screen (create / edit / delete + search). |
 | `GroupListView` | The catalog list, controller-driven, with edit/delete + filter. |
-| `GroupAssignmentField` | Assign groups to any target (user, folder, …) — chips + searchable add picker. |
-| `GroupPicker` | Searchable multi-select picker — adaptive bottom sheet / dialog. |
-| `GroupBulkAssignmentDialog` | Pick groups to add to many principals at once (host selects the principals). |
 | `BulkSelectionBar` | Fixed-height selection toolbar (select all/none + bulk actions) for any list — no `Group` dependency. |
-| `GroupEditorDialog` / `GroupChip` / `GroupAvatar` | Composable building blocks. |
+| `GroupEditorDialog` / `GroupChip` / `GroupAvatar` / `PrincipalChip` / `PrincipalAvatar` | Composable building blocks. |
+
+Membership is one relation you can edit from **either end**, and every piece has a mirror:
+
+| Groups for a member | Members of a group |
+|---|---|
+| `GroupAssignmentField` — chips + picker | `MemberAssignmentField` — chips + picker |
+| `GroupPicker` | `MemberPicker` |
+| `GroupManagerView` (the catalog) | `GroupMembersView` (one group's roster) |
+| `GroupBulkAssignmentDialog` | *(covered by `MemberPicker`)* |
+| `controller.groupsFor(id)` / `setAssignments` | `controller.membersOf(id)` / `setMembers` |
+
+Both sides read and write the same data, so an edit made from one is immediately visible from
+the other.
 
 ## Usage
 
@@ -83,6 +95,85 @@ ListenableBuilder(
   ),
 );
 ```
+
+### Add members to a group
+
+The mirror of the above. `GroupMembersView` is the drop-in surface for one group's
+membership — search, an "Edit members" picker, and per-row plus bulk removal —
+typically reached by tapping a row in `GroupManagerView`:
+
+```dart
+GroupManagerView(
+  controller: controller,
+  onTap: (group) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(group.name)),
+        body: GroupMembersView(
+          groupId: group.id,
+          roster: allUsers, // your own List<Principal>
+          controller: controller,
+        ),
+      ),
+    ),
+  ),
+);
+```
+
+The **roster is yours to supply**. The controller stores principal ids, not people, so it
+can't enumerate someone who belongs to no group yet — map your user type onto `Principal`
+at the widget boundary:
+
+```dart
+final allUsers = [
+  for (final user in myUsers)
+    Principal(
+      id: user.uid,
+      name: user.displayName,
+      description: user.email,
+      imageUrl: user.photoUrl,
+    ),
+];
+```
+
+`PrincipalAvatar` is a thin wrapper over `UserAvatar` from
+[codifyiq_user_avatar](../codifyiq_user_avatar) — it adds the group palette tint and the
+service-account `icon`, and leaves photos, initials, and the person-glyph fallback to
+`UserAvatar`. A user therefore looks the same here as on the rest of your screens, rather
+than being a second interpretation of the same avatar. If a photo isn't a fetchable URL —
+base64 bytes from your directory, a cached file, a bundled asset — hand `Principal` a
+provider instead of a URL:
+
+```dart
+Principal(
+  id: user.uid,
+  name: user.displayName,
+  imageProvider: MemoryImage(base64Decode(user.photoBase64)),
+);
+```
+
+Hold that provider in state rather than allocating it inside `build` — `MemoryImage`
+compares its bytes by identity, so a fresh instance per frame re-decodes the photo. For
+photos that *are* URLs behind an authenticated or cached endpoint, pass `avatarHeaders` /
+`avatarImageProviderBuilder` to `GroupMembersView`, `MemberPicker`, or
+`MemberAssignmentField` — the same builder you already use with `UserAvatar`.
+
+For a single group inline on a form (rather than a whole screen), use
+`MemberAssignmentField` — the exact counterpart of `GroupAssignmentField`, with the same
+chips, `lockedIds`, `maxVisibleChips`, and `singleLine` options:
+
+```dart
+MemberAssignmentField(
+  label: group.name,
+  roster: allUsers,
+  selected: controller.membersOf(group.id),
+  onChanged: (ids) => controller.setMembers(group.id, ids),
+);
+```
+
+`setMembers` rewrites only that group's membership — a principal removed from it keeps
+every other group they belong to. Or reach for `MemberPicker.show` directly to build your
+own affordance.
 
 ### Assign groups to any object (folder, document, project, …)
 
