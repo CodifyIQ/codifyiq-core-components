@@ -6,6 +6,10 @@ A complete, purely presentational sign-in screen layout with logo, tagline, soci
 buttons, error display, and footer. Consuming apps inject their own branding, buttons, and
 authentication callbacks.
 
+## Demo
+Select the image for a quick walkthrough:
+[![Watch the social sign-in screen in action](doc/codifyiq_social_sign_in_demo.png)](https://drive.google.com/file/d/1pIruZQLEctcN53TLbXsJNNJO_vnIpRZp/view?usp=drive_link)
+
 ## Features
 
 * Customizable logo, tagline, sign-in prompt, and footer.
@@ -25,7 +29,7 @@ authentication callbacks.
 
 ```yaml
 dependencies:
-  codifyiq_social_sign_in: ^1.0.0
+  codifyiq_social_sign_in: ^1.1.0
 ```
 
 ## Usage

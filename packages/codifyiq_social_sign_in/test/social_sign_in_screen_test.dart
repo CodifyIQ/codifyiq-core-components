@@ -363,7 +363,8 @@ void main() {
 
       // A click can land the browser caret mid-string (the hidden field
       // spans every box); it must snap back to the tip.
-      final hiddenController = tester.widget<TextField>(hiddenField())
+      final hiddenController = tester
+          .widget<TextField>(hiddenField())
           .controller!;
       hiddenController.selection = const TextSelection.collapsed(offset: 0);
       await tester.pump();

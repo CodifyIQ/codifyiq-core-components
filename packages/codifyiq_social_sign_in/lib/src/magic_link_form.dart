@@ -100,6 +100,10 @@ class MagicLinkForm extends StatefulWidget {
   @override
   State<MagicLinkForm> createState() => MagicLinkFormState();
 
+  /// Returns a copy of this form with the given fields replaced.
+  ///
+  /// Used by [SocialSignInScreen] to graft its own `key`, `onError`, and
+  /// `onLinkSentChanged` onto the form a caller supplied via `MagicLinkButton`.
   MagicLinkForm copyWith({
     GlobalKey<MagicLinkFormState>? key,
     Future<void> Function(String email)? onSubmitEmail,
@@ -307,7 +311,11 @@ class MagicLinkFormState extends State<MagicLinkForm> {
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -387,7 +395,9 @@ class MagicLinkFormState extends State<MagicLinkForm> {
           // there's no code field) rather than the unrelated back button.
           const SizedBox(height: 8),
           TextButton(
-            onPressed: _cooldownRemaining == 0 && !_isResending ? _resend : null,
+            onPressed: _cooldownRemaining == 0 && !_isResending
+                ? _resend
+                : null,
             // The label stays laid out (invisible) under the spinner so the
             // button keeps its size during the swap.
             child: Stack(

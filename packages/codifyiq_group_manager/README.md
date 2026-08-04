@@ -289,6 +289,55 @@ GroupAssignmentField(
 );
 ```
 
+### Permanent groups and permanent members
+
+Some memberships must not be editable away — an "Administrators" group your
+assignments depend on, or a group's own owner. Pass `lockedIds` to
+`GroupAssignmentField`, `GroupPicker`, `GroupManagerView`, and `GroupListView`,
+or `lockedMemberIds` to `GroupMembersView` and `MemberAssignmentField`:
+
+```dart
+GroupMembersView(
+  groupId: group.id,
+  roster: allUsers,
+  controller: controller,
+  lockedMemberIds: {group.ownerId},
+);
+```
+
+A locked entry shows a lock glyph in place of its remove affordance, appears
+checked-and-disabled in the picker, is excluded from bulk removal, and is
+always present in the resulting selection. In the catalog, a locked group's row
+offers no Delete action (it stays editable). The protection is presentational —
+it withholds affordances, but `setAssignments` / `setMembers` still honor a
+direct call.
+
+### Unsaved changes aren't lost to a stray click
+
+Once the group editor has been typed in, or a picker's selection changed,
+dismissing it — clicking off the surface, Escape, the system back gesture, or
+Cancel — asks *"Discard changes?"* first. An untouched editor or picker still
+closes immediately. This applies to `GroupEditorDialog`, `GroupPicker`,
+`MemberPicker`, and `GroupBulkAssignmentDialog`, and needs no wiring.
+
+### Tuning the chip animation
+
+`GroupAssignmentField` and `MemberAssignmentField` animate their resize when
+membership changes — adding or removing a chip, showing the first chip in place
+of the empty hint, or expanding the "+N more" overflow. Override
+`sizeAnimationDuration` to retune it, or pass `Duration.zero` for an instant
+snap:
+
+```dart
+GroupAssignmentField(
+  // ...
+  sizeAnimationDuration: Duration.zero,
+);
+```
+
+The transition is skipped automatically when the platform asks for reduced
+motion.
+
 ### Ambient access via scope
 
 ```dart
