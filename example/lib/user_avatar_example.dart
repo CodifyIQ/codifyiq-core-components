@@ -9,7 +9,8 @@ import 'package:flutter/material.dart';
 /// Shows the avatar in three states: a successfully loaded network photo,
 /// initials derived from a display name, and initials derived from an email
 /// fallback. Also illustrates radius and color overrides, plus supplying a
-/// non-URL image via [UserAvatar.imageProvider]. The final section shows
+/// non-URL image via [UserAvatar.photoBase64] / [UserAvatar.photoBytes]. The
+/// final section shows
 /// [SelectableAvatarLeading] driving a small bulk-selectable list on its
 /// own — no `codifyiq_group_manager` involved — to demonstrate that it has
 /// no dependency beyond `UserAvatar` itself.
@@ -17,19 +18,11 @@ class UserAvatarExample extends StatelessWidget {
   /// Creates a [UserAvatarExample].
   const UserAvatarExample({super.key});
 
-  /// A tiny in-memory PNG (a solid red 1×1 swatch), decoded once and held as a
-  /// stable [MemoryImage] instance.
-  ///
-  /// Keeping a single instance — rather than allocating `MemoryImage(...)`
-  /// inside `build` — lets Flutter's image cache dedupe it across rebuilds,
-  /// the recommended pattern for `MemoryImage` in list/chat contexts (see the
-  /// `imageProvider` dartdoc).
-  static final MemoryImage _inMemoryAvatar = MemoryImage(
-    base64Decode(
+  /// A tiny in-memory PNG (a solid red 1×1 swatch) in the shape photos usually
+  /// arrive in from an OAuth provider or JSON API: base64.
+  static const String _photoBase64 =
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ'
-      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    ),
-  );
+      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
   static const List<_DemoUser> _users = [
     _DemoUser(
@@ -106,24 +99,35 @@ class UserAvatarExample extends StatelessWidget {
             ),
             const Divider(height: 32),
             Text(
-              'Non-URL image source (MemoryImage via imageProvider):',
+              'Non-URL image sources (photoBase64 / photoBytes):',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             Row(
               children: [
+                const UserAvatar(
+                  photoBase64: _photoBase64,
+                  displayName: 'In Memory',
+                  radius: 24,
+                ),
+                const SizedBox(width: 16),
                 UserAvatar(
-                  imageProvider: _inMemoryAvatar,
+                  // Freshly allocated on every build on purpose: the widget
+                  // reuses its MemoryImage while the bytes are unchanged, so
+                  // this does not re-decode when the page rebuilds.
+                  photoBytes: base64Decode(_photoBase64),
                   displayName: 'In Memory',
                   radius: 24,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'imageProvider takes precedence over photoUrl and a builder, '
-                    'and flows through the same circular-clip, cover-fit, and '
-                    'error-to-initials fallback as a network photo — here a '
-                    'red MemoryImage swatch with no URL at all.',
+                    'photoBase64 and photoBytes take precedence over photoUrl '
+                    'and a builder, and flow through the same circular-clip, '
+                    'cover-fit, and error-to-initials fallback as a network '
+                    'photo — here a red swatch with no URL at all. Pass an '
+                    'imageProvider instead for other sources (FileImage, '
+                    'AssetImage).',
                     style: theme.textTheme.bodySmall,
                   ),
                 ),

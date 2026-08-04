@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'user_avatar.dart';
@@ -42,6 +43,8 @@ class SelectableAvatarLeading extends StatefulWidget {
     this.email,
     this.photoUrl,
     this.imageProvider,
+    this.photoBytes,
+    this.photoBase64,
     this.radius = 20.0,
   });
 
@@ -63,6 +66,12 @@ class SelectableAvatarLeading extends StatefulWidget {
 
   /// Forwarded to [UserAvatar.imageProvider].
   final ImageProvider? imageProvider;
+
+  /// Forwarded to [UserAvatar.photoBytes].
+  final Uint8List? photoBytes;
+
+  /// Forwarded to [UserAvatar.photoBase64].
+  final String? photoBase64;
 
   /// Radius of the avatar / check icon box.
   final double radius;
@@ -123,6 +132,8 @@ class _SelectableAvatarLeadingState extends State<SelectableAvatarLeading> {
                       email: widget.email,
                       photoUrl: widget.photoUrl,
                       imageProvider: widget.imageProvider,
+                      photoBytes: widget.photoBytes,
+                      photoBase64: widget.photoBase64,
                       radius: widget.radius,
                     ),
                   ),

@@ -13,7 +13,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_user_avatar: ^1.1.0
+  codifyiq_user_avatar: ^1.2.0
 ```
 
 ## Usage
@@ -28,18 +28,28 @@ UserAvatar(
 );
 ```
 
-### Non-URL image sources
+### In-memory and base64 photos
 
-To use an image you already hold in memory or on disk (not a URL), pass an
-`imageProvider`. It takes precedence over `photoUrl`/`imageProviderBuilder` and
-flows through the same circular clip, cover fit, and initials fallback:
+For a photo you already hold as bytes — or, as it usually arrives from an OAuth
+provider or JSON API, as a base64 string — pass `photoBytes` or `photoBase64`
+instead of a URL. Both take precedence over `photoUrl` and flow through the same
+circular clip, cover fit, and initials fallback:
 
 ```dart
-UserAvatar(imageProvider: MemoryImage(bytes), displayName: user.displayName);
+UserAvatar(photoBytes: user.photoBytes, displayName: user.displayName);
+UserAvatar(photoBase64: user.photoBase64, displayName: user.displayName);
 ```
 
-In list contexts, hold a stable `MemoryImage` instance (it compares bytes by
-identity) so the image cache can dedupe it across rebuilds.
+The widget owns the `MemoryImage` and reuses it whenever the bytes (or the
+base64 string) are unchanged, so recreating them inline in `build` — the common
+case in a list that rebuilds when any one row changes — never re-decodes the
+photo. `photoBase64` also accepts a `data:image/png;base64,…` URI, and an
+undecodable string falls back to initials rather than throwing.
+
+For other sources, such as `FileImage` or `AssetImage`, pass an `imageProvider`;
+it takes precedence over every other photo source. Providers are compared by
+value across rebuilds, including `MemoryImage` bytes, so an inline provider no
+longer forces a re-decode either.
 
 ### Bulk-selectable list rows
 
@@ -47,8 +57,8 @@ identity) so the image cache can dedupe it across rebuilds.
 tap it, or hover it on desktop, to swap the avatar for a check icon and report
 the selection — the Google Contacts pattern for starting a multi-select
 without dedicating a whole column to checkboxes up front. It accepts the same
-`displayName` / `email` / `photoUrl` / `imageProvider` / `radius` as
-`UserAvatar`, plus `selected` and `onChanged`:
+`displayName` / `email` / `photoUrl` / `imageProvider` / `photoBytes` /
+`photoBase64` / `radius` as `UserAvatar`, plus `selected` and `onChanged`:
 
 ```dart
 Row(

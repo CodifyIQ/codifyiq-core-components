@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -184,6 +187,153 @@ void main() {
       expect(find.text('AL'), findsOneWidget);
     });
 
+    testWidgets('equal-but-recreated MemoryImage does not swap the provider', (
+      tester,
+    ) async {
+      Widget build() => pump(
+        UserAvatar(
+          displayName: 'Ada Lovelace',
+          // Freshly allocated on every build, as a caller would do inline.
+          imageProvider: MemoryImage(Uint8List.fromList(_pngBytes)),
+        ),
+      );
+
+      await tester.pumpWidget(build());
+      final first = _providerOf(tester);
+      await tester.pumpWidget(build());
+      expect(identical(_providerOf(tester), first), isTrue);
+    });
+
+    testWidgets('equal-but-recreated ResizeImage does not swap the provider', (
+      tester,
+    ) async {
+      Widget build() => pump(
+        UserAvatar(
+          displayName: 'Ada Lovelace',
+          // ResizeImage's own equality delegates to the provider it wraps,
+          // whose bytes compare by identity — so this must be unwrapped.
+          imageProvider: ResizeImage(
+            MemoryImage(Uint8List.fromList(_pngBytes)),
+            width: 48,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build());
+      final first = _providerOf(tester);
+      await tester.pumpWidget(build());
+      expect(identical(_providerOf(tester), first), isTrue);
+    });
+
+    testWidgets('a ResizeImage resized differently does swap the provider', (
+      tester,
+    ) async {
+      Widget build(int width) => pump(
+        UserAvatar(
+          displayName: 'Ada Lovelace',
+          imageProvider: ResizeImage(
+            MemoryImage(Uint8List.fromList(_pngBytes)),
+            width: width,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build(48));
+      final first = _providerOf(tester);
+      await tester.pumpWidget(build(96));
+      expect(identical(_providerOf(tester), first), isFalse);
+    });
+
+    testWidgets('photoBytes reuses one MemoryImage across rebuilds', (
+      tester,
+    ) async {
+      Widget build() => pump(
+        UserAvatar(
+          displayName: 'Ada Lovelace',
+          photoBytes: Uint8List.fromList(_pngBytes),
+        ),
+      );
+
+      await tester.pumpWidget(build());
+      final first = _providerOf(tester);
+      expect(first, isA<MemoryImage>());
+
+      // A new-but-equal list must not force a re-decode: the widget keeps the
+      // same provider instance so Flutter's ImageCache still hits.
+      await tester.pumpWidget(build());
+      expect(identical(_providerOf(tester), first), isTrue);
+    });
+
+    testWidgets('changing photoBytes swaps the provider', (tester) async {
+      Widget build(List<int> bytes) => pump(
+        UserAvatar(
+          displayName: 'Ada Lovelace',
+          photoBytes: Uint8List.fromList(bytes),
+        ),
+      );
+
+      await tester.pumpWidget(build(_pngBytes));
+      final first = _providerOf(tester);
+      await tester.pumpWidget(build([..._pngBytes, 0]));
+      expect(identical(_providerOf(tester), first), isFalse);
+    });
+
+    testWidgets('photoBase64 renders and survives rebuilds', (tester) async {
+      Widget build() => pump(
+        const UserAvatar(displayName: 'Ada Lovelace', photoBase64: _b64),
+      );
+
+      await tester.pumpWidget(build());
+      final first = _providerOf(tester);
+      expect(first, isA<MemoryImage>());
+      expect(find.text('AL'), findsNothing);
+
+      await tester.pumpWidget(build());
+      expect(identical(_providerOf(tester), first), isTrue);
+    });
+
+    testWidgets('photoBase64 accepts a data: URI prefix', (tester) async {
+      await tester.pumpWidget(
+        pump(
+          const UserAvatar(
+            displayName: 'Ada Lovelace',
+            photoBase64: 'data:image/png;base64,$_b64',
+          ),
+        ),
+      );
+      expect(
+        (_providerOf(tester) as MemoryImage).bytes,
+        equals(Uint8List.fromList(_pngBytes)),
+      );
+    });
+
+    testWidgets('invalid photoBase64 falls back to initials', (tester) async {
+      await tester.pumpWidget(
+        pump(
+          const UserAvatar(displayName: 'Ada Lovelace', photoBase64: 'not!b64'),
+        ),
+      );
+      expect(find.byType(Image), findsNothing);
+      expect(find.text('AL'), findsOneWidget);
+    });
+
+    testWidgets('photoBytes wins over photoBase64 and photoUrl', (
+      tester,
+    ) async {
+      final bytes = Uint8List.fromList([..._pngBytes, 0]);
+      await tester.pumpWidget(
+        pump(
+          UserAvatar(
+            displayName: 'Ada Lovelace',
+            photoUrl: 'https://example.com/a.png',
+            photoBase64: _b64,
+            photoBytes: bytes,
+          ),
+        ),
+      );
+      expect((_providerOf(tester) as MemoryImage).bytes, equals(bytes));
+    });
+
     testWidgets('imageProviderBuilder is invoked with the supplied URL', (
       tester,
     ) async {
@@ -234,3 +384,15 @@ void main() {
     });
   });
 }
+
+/// A 1x1 transparent PNG, base64-encoded — small enough to inline and valid
+/// enough for `MemoryImage` to decode.
+const _b64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA'
+    '60e6kgAAAABJRU5ErkJggg==';
+
+final _pngBytes = base64Decode(_b64);
+
+/// The [ImageProvider] currently backing the rendered avatar photo.
+ImageProvider _providerOf(WidgetTester tester) =>
+    tester.widget<Image>(find.byType(Image)).image;
