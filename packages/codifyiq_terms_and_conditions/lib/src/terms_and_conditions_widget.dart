@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
@@ -6,6 +8,29 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 ///
 /// The button displays a prompt to read the terms until the user has scrolled to
 /// the end. Once scrolled, the button text changes to indicate acceptance.
+///
+/// ## Button Labels
+///
+/// The two button labels are deliberately short so they stay on a single line
+/// on small screens and at large accessibility text scales. Override
+/// [readPromptLabel] and [acceptLabel] to localize them or to match a host's
+/// tone or required assent wording.
+///
+/// ## Processing State
+///
+/// Recording an acceptance is often a network call. Set [isProcessing] to
+/// `true` while that request is in flight to disable the button and replace
+/// its label with a progress indicator, preventing duplicate taps.
+///
+/// ## Usage
+///
+/// ```dart
+/// TermsAndConditionsWidget(
+///   termsContent: myMarkdownTerms,
+///   isProcessing: _isRecordingAcceptance,
+///   onAccepted: _recordAcceptance,
+/// )
+/// ```
 class TermsAndConditionsWidget extends StatefulWidget {
   /// The optional header text to be displayed above the terms.
   /// Defaults to 'Terms and Conditions'.
@@ -15,13 +40,38 @@ class TermsAndConditionsWidget extends StatefulWidget {
   final String? termsContent;
 
   /// Callback invoked when the terms are accepted.
+  ///
+  /// When null the acceptance button is disabled, matching the behaviour of
+  /// Flutter's own buttons.
   final VoidCallback? onAccepted;
 
+  /// Label shown on the acceptance button before the user has scrolled to the
+  /// end of the terms, while the button is still gated.
+  ///
+  /// Defaults to `'Read to accept'`.
+  final String readPromptLabel;
+
+  /// Label shown on the acceptance button once the user has scrolled to the
+  /// end of the terms.
+  ///
+  /// Defaults to `'Accept'`.
+  final String acceptLabel;
+
+  /// Whether an acceptance is currently being processed.
+  ///
+  /// When `true`, the button is disabled and its label is replaced with a
+  /// [CircularProgressIndicator].
+  final bool isProcessing;
+
+  /// Creates a [TermsAndConditionsWidget].
   const TermsAndConditionsWidget({
     super.key,
     this.headerText = 'Terms and Conditions',
     this.termsContent,
     this.onAccepted,
+    this.readPromptLabel = 'Read to accept',
+    this.acceptLabel = 'Accept',
+    this.isProcessing = false,
   });
 
   @override
@@ -33,6 +83,15 @@ class TermsAndConditionsWidget extends StatefulWidget {
 class TermsAndConditionsWidgetState extends State<TermsAndConditionsWidget> {
   bool _hasScrolledToEnd = false;
   final ScrollController _scrollController = ScrollController();
+
+  /// The text colour the markdown was last rendered against.
+  Color? _renderedTextColor;
+
+  /// Bumped to re-key the markdown once a theme change has settled.
+  int _themeEpoch = 0;
+
+  /// Debounces [_themeEpoch] bumps until the theme stops animating.
+  Timer? _themeSettleTimer;
 
   /// Default Markdown formatted Lorem Ipsum text for terms if none provided.
   static const String _defaultTerms = '''
@@ -64,7 +123,52 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final targetTextColor = Theme.of(context).colorScheme.onSurface;
+    if (_renderedTextColor == null) {
+      _renderedTextColor = targetTextColor;
+      return;
+    }
+    if (_renderedTextColor == targetTextColor) return;
+
+    // `gpt_markdown` bakes a resolved colour into its heading spans, so the
+    // markdown has to be rebuilt to pick up a new theme. A theme change
+    // animates, which would mean re-parsing the whole document on every frame
+    // of the transition, so debounce: this fires once the colour stops
+    // changing, and the rebuild then resolves the settled theme.
+    _themeSettleTimer?.cancel();
+    _themeSettleTimer = Timer(kThemeAnimationDuration, () {
+      if (!mounted) return;
+      setState(() {
+        _renderedTextColor = Theme.of(context).colorScheme.onSurface;
+        _themeEpoch++;
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant TermsAndConditionsWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.termsContent == widget.termsContent) return;
+
+    // New terms have not been read. Close the gate and return to the top so
+    // the user cannot accept a document they were never shown.
+    setState(() {
+      _hasScrolledToEnd = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+      _checkScrollability();
+    });
+  }
+
+  @override
   void dispose() {
+    _themeSettleTimer?.cancel();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     super.dispose();
@@ -77,8 +181,16 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
   void _checkScrollability() {
     if (!_scrollController.hasClients || !mounted || _hasScrolledToEnd) return;
 
-    final maxScrollExtent = _scrollController.position.maxScrollExtent;
-    final currentPosition = _scrollController.position.pixels;
+    final position = _scrollController.position;
+
+    // A viewport that has not been measured yet also reports a zero scroll
+    // extent, which is indistinguishable from terms that genuinely fit. Wait
+    // for real dimensions rather than latching the gate open on a transient
+    // layout — the flag is one-way, so a wrong answer here is permanent.
+    if (!position.haveDimensions || position.viewportDimension <= 0) return;
+
+    final maxScrollExtent = position.maxScrollExtent;
+    final currentPosition = position.pixels;
 
     // Enable acceptance if content is non-scrollable or scrolled to the end
     // Added a small buffer (e.g., 1.0) for floating point precision with maxScrollExtent
@@ -96,10 +208,18 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
     _checkScrollability();
   }
 
+  /// Whether the acceptance button should be tappable.
+  ///
+  /// Acceptance requires the user to have reached the end of the terms, a
+  /// callback to deliver the acceptance to, and no acceptance already in
+  /// flight.
+  bool get _canAccept =>
+      _hasScrolledToEnd && widget.onAccepted != null && !widget.isProcessing;
+
   /// Handles button press and triggers the acceptance callback.
   void _handleAcceptance() {
-    if (!_hasScrolledToEnd) return;
-    widget.onAccepted?.call();
+    if (!_canAccept) return;
+    widget.onAccepted!.call();
   }
 
   @override
@@ -135,7 +255,14 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
         thumbVisibility: true,
         child: SingleChildScrollView(
           controller: _scrollController,
-          child: GptMarkdown(widget.termsContent ?? _defaultTerms),
+          // Re-keyed by [didChangeDependencies] once a theme change settles,
+          // which is what forces `gpt_markdown` to re-resolve the colour it
+          // bakes into heading spans. Keying on the live colour instead would
+          // re-parse the document on every frame of the transition.
+          child: GptMarkdown(
+            key: ValueKey(_themeEpoch),
+            widget.termsContent ?? _defaultTerms,
+          ),
         ),
       ),
     );
@@ -143,19 +270,43 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
 
   /// Builds the acceptance button.
   ///
-  /// The button text changes based on whether the user has scrolled to the end.
+  /// The button text changes based on whether the user has scrolled to the end,
+  /// and is replaced by a progress indicator while [TermsAndConditionsWidget.isProcessing]
+  /// is `true`.
   Widget _buildAcceptanceButton(BuildContext context) {
     final buttonText = _hasScrolledToEnd
-        ? 'I have read and agree to the Terms and Conditions'
-        : 'Please read the entire Terms and Conditions before accepting';
+        ? widget.acceptLabel
+        : widget.readPromptLabel;
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: _hasScrolledToEnd ? _handleAcceptance : null,
+        onPressed: _canAccept ? _handleAcceptance : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Text(buttonText, textAlign: TextAlign.center),
+          // Built through a Builder so the indicator resolves the button's own
+          // DefaultTextStyle rather than the page's.
+          child: widget.isProcessing
+              ? Builder(builder: _buildProcessingIndicator)
+              : Text(buttonText, textAlign: TextAlign.center),
         ),
+      ),
+    );
+  }
+
+  /// Builds the in-flight indicator shown in place of the button label.
+  ///
+  /// Sized from the text scale so the button keeps the height it has when it
+  /// shows a label, and tinted with the button's own foreground colour so it
+  /// matches the label it replaces, including any `filledButtonTheme` a host
+  /// has applied. [context] must therefore come from inside the button.
+  Widget _buildProcessingIndicator(BuildContext context) {
+    final size = MediaQuery.textScalerOf(context).scale(20);
+    return SizedBox(
+      height: size,
+      width: size,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: DefaultTextStyle.of(context).style.color,
       ),
     );
   }

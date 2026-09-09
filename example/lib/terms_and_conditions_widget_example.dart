@@ -5,8 +5,14 @@ import 'package:flutter/material.dart';
 /// An example page that demonstrates the usage of the [TermsAndConditionsWidget].
 ///
 /// This stateful widget displays a screen with an app bar and
-/// the [TermsAndConditionsWidget] in its body. It provides a callback
-/// function that is triggered when the terms and conditions are accepted.
+/// the [TermsAndConditionsWidget] in its body. It demonstrates the three
+/// things a host typically wires up:
+///
+/// * an `onAccepted` callback, triggered once the user accepts;
+/// * `isProcessing`, held true while the acceptance is recorded, which
+///   disables the button and shows a progress indicator;
+/// * `readPromptLabel` and `acceptLabel`, which the app bar's translate
+///   button swaps to French to show that the button can be localized.
 class TermsAndConditionsWidgetExample extends StatefulWidget {
   /// Creates an instance of [TermsAndConditionsWidgetExample].
   ///
@@ -26,6 +32,14 @@ class TermsAndConditionsWidgetExample extends StatefulWidget {
 /// and the logic for handling the acceptance of terms and conditions.
 class _TermsAndConditionsWidgetExampleState
     extends State<TermsAndConditionsWidgetExample> {
+  /// Whether the simulated server-side recording of the acceptance is in
+  /// flight, which disables the button and shows a progress indicator.
+  bool _isProcessing = false;
+
+  /// Whether to override the button's default English labels with French
+  /// ones, demonstrating that a non-English host can translate them.
+  bool _useFrenchLabels = false;
+
   @override
   Widget build(BuildContext context) {
     const String customTerms = '''
@@ -92,11 +106,27 @@ class _TermsAndConditionsWidgetExampleState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Terms and Conditions Example'),
-        actions: const [BrightnessButton()],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.translate),
+            tooltip: _useFrenchLabels
+                ? 'Use default button labels'
+                : 'Use French button labels',
+            onPressed: () =>
+                setState(() => _useFrenchLabels = !_useFrenchLabels),
+          ),
+          const BrightnessButton(),
+        ],
       ),
       body: TermsAndConditionsWidget(
         onAccepted: _onAccepted,
         termsContent: customTerms,
+        isProcessing: _isProcessing,
+        // Omit these two to get the defaults, 'Read to accept' and 'Accept'.
+        readPromptLabel: _useFrenchLabels
+            ? 'Lire pour accepter'
+            : 'Read to accept',
+        acceptLabel: _useFrenchLabels ? 'Accepter' : 'Accept',
       ),
     );
   }
@@ -106,7 +136,15 @@ class _TermsAndConditionsWidgetExampleState
   /// Developers should implement the desired actions here, such as:
   /// - Persisting the acceptance status and any related metadata (e.g., timestamp).
   /// - Navigating the user to the main part of the application (e.g., home page).
-  void _onAccepted() {
+  ///
+  /// That work is usually a network call, so this example holds `isProcessing`
+  /// true for its duration to show the button's in-flight state.
+  Future<void> _onAccepted() async {
+    setState(() => _isProcessing = true);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+
     // Example: Show a snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Terms and Conditions Accepted!')),
