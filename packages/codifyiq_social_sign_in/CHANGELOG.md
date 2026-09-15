@@ -1,5 +1,15 @@
 ## 1.1.1
 
+* Code-only email sign-in, for apps that can't receive links (e.g. a native
+  mobile app without universal links / app links). Pass
+  `delivery: MagicLinkDelivery.code` with `onSubmitCode` to `MagicLinkForm`
+  and the form's copy talks only about a code: "Email me a code",
+  "Sending code…", and "We sent a 6-character code to … Enter it below.",
+  with the code field shown as soon as the email is sent.
+* `MagicLinkDelivery.link` and `MagicLinkDelivery.linkAndCode` name the
+  existing behaviours. `delivery` is optional and defaults from whether
+  `onSubmitCode` is set, so existing forms are unchanged;
+  `MagicLinkForm.effectiveDelivery` reports the resolved mode.
 * `SocialSignInScreen` now respects device safe-area insets: the logo no
   longer sits under the status bar or camera cutout when there is no
   `appBar`, and the `footer` clears the home indicator.

@@ -20,7 +20,8 @@ Select the image for a quick walkthrough:
   authentication, preventing duplicate taps.
 * `SocialSignInButton` — a companion widget for consistent icon + label button styling.
 * An optional **email magic-link** option: a "Continue with email" button that reveals an
-  inline form with a "check your inbox" confirmation and resend cooldown (see
+  inline form with a "check your inbox" confirmation and resend cooldown, plus
+  optional code entry or code-only sign-in for apps that can't receive links (see
   [Magic-link sign-in](#magic-link-sign-in)).
 * An optional **reviewer login easter egg**: tapping the logo a configurable number of times
   reveals a built-in email/password form for app-store reviewers.
@@ -77,7 +78,7 @@ try {
 
 ## Magic-link sign-in
 
-Add `MagicLinkButton` to `signInButtons` with an `onSubmitEmail` callback.
+Add `MagicLinkButton` to `signInButtons` with a `MagicLinkForm` and its `onSubmitEmail` callback.
 Tapping it reveals an inline form. On submission, a confirmation screen appears
 with a resend option (`resendCooldown` is configurable; `onResend` defaults to
 `onSubmitEmail`).
@@ -87,7 +88,9 @@ SocialSignInScreen(
   signInButtons: [
     SocialSignInButton(icon: googleLogo, label: 'Continue with Google', onPressed: _google),
     MagicLinkButton(
-      onSubmitEmail: (email) => _sendMagicLink(email),
+      form: MagicLinkForm(
+        onSubmitEmail: (email) => _sendMagicLink(email),
+      ),
     ),
   ],
 );
@@ -107,10 +110,12 @@ pre-fetching.
 
 ```dart
 MagicLinkButton(
-  onSubmitEmail: (email) => _sendMagicLink(email),
-  onSubmitCode: (code) => _verifyCode(code),
-  codeLength: 6,
-  codeHelperText: 'The code expires in 15 minutes.',
+  form: MagicLinkForm(
+    onSubmitEmail: (email) => _sendMagicLink(email),
+    onSubmitCode: (code) => _verifyCode(code),
+    codeLength: 6,
+    codeHelperText: 'The code expires in 15 minutes.',
+  ),
 );
 ```
 
@@ -118,24 +123,48 @@ The callback receives only the code (pasted separators ` `/`-` are auto-stripped
 and thrown exceptions display inline errors. `MagicLinkCodeField` is also
 available as a standalone component.
 
+### Code-only sign-in
+
+For apps that can't receive links (e.g. a native mobile app without Universal
+Links / App Links, or a backend that only issues codes), set
+`delivery: MagicLinkDelivery.code`. The form then mentions only a code
+("Email me a code", "We sent a 6-character code to … Enter it below.") and
+shows the code field as soon as the email is sent.
+
+```dart
+MagicLinkButton(
+  form: MagicLinkForm(
+    delivery: MagicLinkDelivery.code,
+    onSubmitEmail: (email) => _sendSignInCode(email),
+    onSubmitCode: (code) => _verifyCode(code),
+  ),
+);
+```
+
+`delivery` defaults to `MagicLinkDelivery.linkAndCode` when `onSubmitCode` is
+set and `MagicLinkDelivery.link` otherwise. `linkAndCode` and `code` require
+`onSubmitCode`.
+
 ### Using Firebase
 
 Firebase Auth natively handles email-link sign-in:
 
 ```dart
 MagicLinkButton(
-  onSubmitEmail: (email) async {
-    await prefs.setString('pendingMagicLinkEmail', email);
-    await FirebaseAuth.instance.sendSignInLinkToEmail(
-      email: email,
-      actionCodeSettings: ActionCodeSettings(
-        url: 'https://example.com/verify',
-        handleCodeInApp: true,
-        androidPackageName: 'com.example.app',
-        iOSBundleId: 'com.example.app',
-      ),
-    );
-  },
+  form: MagicLinkForm(
+    onSubmitEmail: (email) async {
+      await prefs.setString('pendingMagicLinkEmail', email);
+      await FirebaseAuth.instance.sendSignInLinkToEmail(
+        email: email,
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://example.com/verify',
+          handleCodeInApp: true,
+          androidPackageName: 'com.example.app',
+          iOSBundleId: 'com.example.app',
+        ),
+      );
+    },
+  ),
 );
 
 // Deep-link verify handler:

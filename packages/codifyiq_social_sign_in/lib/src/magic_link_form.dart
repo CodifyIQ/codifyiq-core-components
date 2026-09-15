@@ -5,6 +5,21 @@ import 'package:flutter/material.dart';
 import 'magic_link_code_field.dart';
 import 'social_sign_in_screen.dart' show SocialSignInError, buildErrorBanner;
 
+/// What the sign-in email delivers, which sets the [MagicLinkForm] copy.
+enum MagicLinkDelivery {
+  /// A sign-in link only; the confirmation panel asks the user to tap it.
+  link,
+
+  /// A sign-in link plus a short code for devices where the link can't be
+  /// tapped. Requires [MagicLinkForm.onSubmitCode].
+  linkAndCode,
+
+  /// A short code only, for apps that can't receive links (e.g. a native
+  /// mobile app without universal links / app links). No link wording is
+  /// shown. Requires [MagicLinkForm.onSubmitCode].
+  code,
+}
+
 /// Phase of the magic-link flow.
 enum _MagicLinkPhase { email, submitting, linkSent }
 
@@ -26,14 +41,18 @@ class MagicLinkForm extends StatefulWidget {
   /// (default 60s).
   /// [onError] receives a [SocialSignInError] for diagnostics when a send
   /// fails; the user-facing message is shown inline regardless.
-  /// [onSubmitCode] verifies the cross-device fallback code; when non-null,
-  /// the "check your inbox" panel surfaces a [MagicLinkCodeField] wired to
-  /// it, above the resend button.
+  /// [onSubmitCode] verifies the emailed code (the cross-device fallback, or
+  /// the only step with [MagicLinkDelivery.code]); when non-null, the "check
+  /// your inbox" panel surfaces a [MagicLinkCodeField] wired to it, above the
+  /// resend button.
   /// [codeHelperText] is threaded to [MagicLinkCodeField.helperText]; `null`
   /// (the default) omits the helper line. Unused when [onSubmitCode] is
   /// null.
   /// [codeLength] is the expected code length, threaded to
   /// [MagicLinkCodeField.length] and to the confirmation copy (default 6).
+  /// [delivery] is what the email contains, which sets the form's copy;
+  /// `null` (the default) resolves to [MagicLinkDelivery.linkAndCode] when
+  /// [onSubmitCode] is set and [MagicLinkDelivery.link] otherwise.
   const MagicLinkForm({
     super.key,
     required this.onSubmitEmail,
@@ -45,19 +64,25 @@ class MagicLinkForm extends StatefulWidget {
     this.codeHelperText,
     this.codeLength = 6,
     this.minHeight,
-  });
+    this.delivery,
+  }) : assert(
+         delivery == null ||
+             (delivery == MagicLinkDelivery.link) == (onSubmitCode == null),
+         'MagicLinkDelivery.link must not set onSubmitCode; '
+         'linkAndCode and code require it.',
+       );
 
-  /// Sends a magic link to [email]. Awaited by the form.
+  /// Sends the sign-in email to `email`. Awaited by the form.
   final Future<void> Function(String email) onSubmitEmail;
 
   /// Re-sends to the already-submitted email. Falls back to [onSubmitEmail]
   /// when null.
   final Future<void> Function(String email)? onResend;
 
-  /// Verifies the short code that rides along with the magic-link email
+  /// Verifies the short code in the sign-in email.
   ///
   /// When non-null, the "check your inbox" panel surfaces a
-  /// [MagicLinkCodeField] below the resend button, present from the moment
+  /// [MagicLinkCodeField] above the resend button, present from the moment
   /// the panel shows. When null, no code entry is offered. Verification
   /// failures are reported via [onError], same as send/resend failures.
   final Future<void> Function(String code)? onSubmitCode;
@@ -80,6 +105,20 @@ class MagicLinkForm extends StatefulWidget {
   /// [MagicLinkCodeField.length] and used to derive the confirmation copy's
   /// "N-character code" phrasing. Defaults to 6.
   final int codeLength;
+
+  /// What the sign-in email contains, which sets the form's copy.
+  ///
+  /// `null` (the default) resolves to [MagicLinkDelivery.linkAndCode] when
+  /// [onSubmitCode] is set and [MagicLinkDelivery.link] otherwise. See
+  /// [effectiveDelivery].
+  final MagicLinkDelivery? delivery;
+
+  /// [delivery], or the mode implied by [onSubmitCode] when it's null.
+  MagicLinkDelivery get effectiveDelivery =>
+      delivery ??
+      (onSubmitCode != null
+          ? MagicLinkDelivery.linkAndCode
+          : MagicLinkDelivery.link);
 
   /// Minimum height the form occupies across its phases.
   ///
@@ -115,6 +154,7 @@ class MagicLinkForm extends StatefulWidget {
     String? codeHelperText,
     int? codeLength,
     double? minHeight,
+    MagicLinkDelivery? delivery,
   }) {
     return MagicLinkForm(
       key: key ?? this.key,
@@ -127,6 +167,7 @@ class MagicLinkForm extends StatefulWidget {
       codeHelperText: codeHelperText ?? this.codeHelperText,
       codeLength: codeLength ?? this.codeLength,
       minHeight: minHeight ?? this.minHeight,
+      delivery: delivery ?? this.delivery,
     );
   }
 }
@@ -134,10 +175,15 @@ class MagicLinkForm extends StatefulWidget {
 /// State for [MagicLinkForm], exposed so hosts can query [isLinkSent] and
 /// call [returnToEmail] through a [GlobalKey].
 class MagicLinkFormState extends State<MagicLinkForm> {
-  static const _sendFailureMessage =
-      'Could not send the link. Please try again.';
-  static const _resendFailureMessage =
-      'Could not resend the link. Please try again.';
+  bool get _isCodeOnly => widget.effectiveDelivery == MagicLinkDelivery.code;
+
+  String get _sendFailureMessage => _isCodeOnly
+      ? 'Could not send the code. Please try again.'
+      : 'Could not send the link. Please try again.';
+
+  String get _resendFailureMessage => _isCodeOnly
+      ? 'Could not resend the code. Please try again.'
+      : 'Could not resend the link. Please try again.';
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -331,7 +377,7 @@ class MagicLinkFormState extends State<MagicLinkForm> {
             const SizedBox(height: 8),
             FilledButton(
               onPressed: _submit,
-              child: const Text('Send magic link'),
+              child: Text(_isCodeOnly ? 'Email me a code' : 'Send magic link'),
             ),
           ],
         ),
@@ -346,7 +392,7 @@ class MagicLinkFormState extends State<MagicLinkForm> {
         const CircularProgressIndicator(),
         const SizedBox(height: 12),
         Text(
-          'Sending link…',
+          _isCodeOnly ? 'Sending code…' : 'Sending link…',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -371,11 +417,17 @@ class MagicLinkFormState extends State<MagicLinkForm> {
           Text('Check your inbox', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            hasCode
-                ? 'We sent a sign-in link and a ${widget.codeLength}-character '
-                      'code to $_sentEmail. Tap the link, or enter the code below.'
-                : 'We sent a sign-in link to $_sentEmail. Tap it to finish '
-                      'signing in.',
+            switch (widget.effectiveDelivery) {
+              MagicLinkDelivery.link =>
+                'We sent a sign-in link to $_sentEmail. Tap it to finish '
+                    'signing in.',
+              MagicLinkDelivery.linkAndCode =>
+                'We sent a sign-in link and a ${widget.codeLength}-character '
+                    'code to $_sentEmail. Tap the link, or enter the code below.',
+              MagicLinkDelivery.code =>
+                'We sent a ${widget.codeLength}-character code to '
+                    '$_sentEmail. Enter it below.',
+            },
             style: theme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
