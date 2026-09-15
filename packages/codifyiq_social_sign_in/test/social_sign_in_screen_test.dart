@@ -11,6 +11,36 @@ void main() {
 
   Widget wrap(Widget child) => MaterialApp(home: child);
 
+  group('SocialSignInScreen safe area', () {
+    testWidgets('keeps the logo below the top inset and the footer above '
+        'the bottom inset', (tester) async {
+      const insets = EdgeInsets.only(top: 59, bottom: 34);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(padding: insets),
+            child: child!,
+          ),
+          home: const SocialSignInScreen(
+            logo: FlutterLogo(),
+            signInButtons: [],
+            footer: Text('footer'),
+          ),
+        ),
+      );
+
+      final screenHeight = tester.getSize(find.byType(Scaffold)).height;
+      expect(
+        tester.getTopLeft(find.byType(FlutterLogo)).dy,
+        greaterThanOrEqualTo(insets.top),
+      );
+      expect(
+        tester.getBottomLeft(find.text('footer')).dy,
+        lessThanOrEqualTo(screenHeight - insets.bottom),
+      );
+    });
+  });
+
   group('SocialSignInScreen error handling', () {
     testWidgets('shows the user-safe message but never the technical detail', (
       tester,

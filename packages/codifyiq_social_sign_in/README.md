@@ -29,7 +29,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_social_sign_in: ^1.1.0
+  codifyiq_social_sign_in: ^1.1.1
 ```
 
 ## Usage

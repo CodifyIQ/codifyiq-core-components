@@ -48,6 +48,10 @@ melos run test
 
 # Run the example catalog
 flutter run -t example/lib/main.dart -d chrome
+
+# Run the example catalog on an iOS simulator (surfaces safe-area / notch issues Chrome hides)
+open -a Simulator
+flutter run -t example/lib/main.dart -d iPhone
 ```
 
 ## Coding Conventions

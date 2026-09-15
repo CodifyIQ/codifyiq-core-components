@@ -1,3 +1,9 @@
+## 1.1.1
+
+* `SocialSignInScreen` now respects device safe-area insets: the logo no
+  longer sits under the status bar or camera cutout when there is no
+  `appBar`, and the `footer` clears the home indicator.
+
 ## 1.1.0
 
 * Email magic-link sign-in. Add a `MagicLinkButton` with `onSubmitEmail` to
