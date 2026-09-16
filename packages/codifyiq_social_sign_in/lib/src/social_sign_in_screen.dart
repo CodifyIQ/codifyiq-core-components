@@ -399,69 +399,84 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
           // Top-aligned rather than centered so content growth (an error
           // appearing, a taller phase) extends downward — everything above
           // the growth point holds still.
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  logoWidget,
-                  if (widget.tagline != null) ...[
-                    const SizedBox(height: 16),
-                    widget.tagline!,
-                  ],
-                  const SizedBox(height: 32),
-                  if (_revealMode != _RevealMode.magicLink)
-                    Text(
-                      _revealMode == _RevealMode.reviewer
-                          ? widget.reviewerLoginPrompt
-                          : widget.signInPrompt,
-                      style: theme.textTheme.bodyLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                  if (errorText != null) ...[
-                    const SizedBox(height: 16),
-                    buildErrorBanner(theme, errorText),
-                  ],
-                  const SizedBox(height: 24),
-                  if (widget.isProcessing) ...[
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.processingMessage,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+          // SafeArea so the top-aligned content clears the status bar and
+          // camera cutout when there is no appBar.
+          body: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 48,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    logoWidget,
+                    if (widget.tagline != null) ...[
+                      const SizedBox(height: 16),
+                      widget.tagline!,
+                    ],
+                    const SizedBox(height: 32),
+                    if (_revealMode != _RevealMode.magicLink)
+                      Text(
+                        _revealMode == _RevealMode.reviewer
+                            ? widget.reviewerLoginPrompt
+                            : widget.signInPrompt,
+                        style: theme.textTheme.bodyLarge,
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ] else if (_revealMode == _RevealMode.reviewer) ...[
-                    widget.reviewerLoginContent ??
-                        _ReviewerLoginForm(onSignIn: widget.onReviewerSignIn!),
-                    const SizedBox(height: 16),
-                    TextButton.icon(
-                      onPressed: _hideRevealedContent,
-                      icon: const Icon(Icons.arrow_back, size: 16),
-                      label: const Text('Back to social logins'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
+                    if (errorText != null) ...[
+                      const SizedBox(height: 16),
+                      buildErrorBanner(theme, errorText),
+                    ],
+                    const SizedBox(height: 24),
+                    if (widget.isProcessing) ...[
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.processingMessage,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                  ] else if (_revealMode == _RevealMode.magicLink)
-                    ..._buildMagicLinkForm(theme)
-                  else ...[
-                    for (int i = 0; i < widget.signInButtons.length; i++) ...[
-                      widget.signInButtons[i],
-                      if (i < widget.signInButtons.length - 1)
-                        const SizedBox(height: 12),
+                    ] else if (_revealMode == _RevealMode.reviewer) ...[
+                      widget.reviewerLoginContent ??
+                          _ReviewerLoginForm(
+                            onSignIn: widget.onReviewerSignIn!,
+                          ),
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: _hideRevealedContent,
+                        icon: const Icon(Icons.arrow_back, size: 16),
+                        label: const Text('Back to social logins'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ] else if (_revealMode == _RevealMode.magicLink)
+                      ..._buildMagicLinkForm(theme)
+                    else ...[
+                      for (int i = 0; i < widget.signInButtons.length; i++) ...[
+                        widget.signInButtons[i],
+                        if (i < widget.signInButtons.length - 1)
+                          const SizedBox(height: 12),
+                      ],
                     ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
           bottomNavigationBar: widget.footer != null
-              ? Padding(padding: const EdgeInsets.all(16), child: widget.footer)
+              ? SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: widget.footer,
+                  ),
+                )
               : null,
         ),
       ),

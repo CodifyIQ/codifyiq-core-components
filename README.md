@@ -45,6 +45,7 @@ melos bootstrap                  # resolve all packages
 melos run analyze                # analyze every package
 melos run test                   # test every package with a test/ dir
 flutter run -t example/lib/main.dart -d chrome   # run the demo catalog
+flutter run -t example/lib/main.dart -d iPhone   # run it on an iOS simulator (safe-area insets)
 ```
 
 The `example/` app demonstrates every widget in a single GoRouter-based catalog.
