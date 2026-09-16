@@ -325,6 +325,137 @@ void main() {
     });
   });
 
+  group('MagicLinkForm delivery', () {
+    Future<void> sendEmail(WidgetTester tester, MagicLinkForm form) async {
+      await tester.pumpWidget(wrap(Scaffold(body: form)));
+      await tester.enterText(find.byType(TextFormField), 'a@b.com');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('link: link copy and no code field', (tester) async {
+      await sendEmail(
+        tester,
+        MagicLinkForm(
+          onSubmitEmail: (email) async {},
+          resendCooldown: Duration.zero,
+          delivery: MagicLinkDelivery.link,
+        ),
+      );
+
+      expect(
+        find.text(
+          'We sent a sign-in link to a@b.com. Tap it to finish signing in.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(MagicLinkCodeField), findsNothing);
+    });
+
+    testWidgets('linkAndCode: link and code copy with the code field', (
+      tester,
+    ) async {
+      await sendEmail(
+        tester,
+        MagicLinkForm(
+          onSubmitEmail: (email) async {},
+          onSubmitCode: (code) async {},
+          resendCooldown: Duration.zero,
+          delivery: MagicLinkDelivery.linkAndCode,
+        ),
+      );
+
+      expect(
+        find.text(
+          'We sent a sign-in link and a 6-character code to a@b.com. '
+          'Tap the link, or enter the code below.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(MagicLinkCodeField), findsOneWidget);
+    });
+
+    testWidgets('code: no link wording anywhere, code field on send', (
+      tester,
+    ) async {
+      final linkWording = find.textContaining(
+        RegExp('link', caseSensitive: false),
+      );
+      var failSend = true;
+      final sendCompleter = Completer<void>();
+      await tester.pumpWidget(
+        wrap(
+          Scaffold(
+            body: MagicLinkForm(
+              onSubmitEmail: (email) {
+                if (failSend) throw Exception('send boom');
+                return sendCompleter.future;
+              },
+              onSubmitCode: (code) async {},
+              resendCooldown: Duration.zero,
+              delivery: MagicLinkDelivery.code,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Email me a code'), findsOneWidget);
+      expect(linkWording, findsNothing);
+
+      // Send failure.
+      await tester.enterText(find.byType(TextFormField), 'a@b.com');
+      await tester.tap(find.text('Email me a code'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Could not send the code. Please try again.'),
+        findsOneWidget,
+      );
+      expect(linkWording, findsNothing);
+
+      // Sending state.
+      failSend = false;
+      await tester.tap(find.text('Email me a code'));
+      await tester.pump();
+      expect(find.text('Sending code…'), findsOneWidget);
+      expect(linkWording, findsNothing);
+
+      // The code field shows as soon as the send succeeds.
+      sendCompleter.complete();
+      await tester.pumpAndSettle();
+      expect(
+        find.text('We sent a 6-character code to a@b.com. Enter it below.'),
+        findsOneWidget,
+      );
+      expect(find.byType(MagicLinkCodeField), findsOneWidget);
+      expect(linkWording, findsNothing);
+    });
+
+    test('defaults from onSubmitCode', () {
+      Future<void> noop(String _) async {}
+      expect(
+        MagicLinkForm(onSubmitEmail: noop).effectiveDelivery,
+        MagicLinkDelivery.link,
+      );
+      expect(
+        MagicLinkForm(
+          onSubmitEmail: noop,
+          onSubmitCode: noop,
+        ).effectiveDelivery,
+        MagicLinkDelivery.linkAndCode,
+      );
+    });
+
+    test('code delivery requires onSubmitCode', () {
+      expect(
+        () => MagicLinkForm(
+          onSubmitEmail: (email) async {},
+          delivery: MagicLinkDelivery.code,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
   group('MagicLinkCodeField', () {
     Finder hiddenField() => find.byType(TextField);
 

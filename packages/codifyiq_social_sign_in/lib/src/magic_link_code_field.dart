@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'social_sign_in_screen.dart' show SocialSignInError;
 
-/// A boxed code entry field for the magic-link cross-device fallback: the
-/// sign-in email carries a short code the user can type into the waiting app
-/// instead of tapping the link.
+/// A boxed code entry field for a short code carried by the sign-in email:
+/// either the magic-link cross-device fallback (typed into the waiting app
+/// instead of tapping the link) or the only step in code-only sign-in.
 ///
 /// Displays [length] boxes but drives them from a single hidden [TextField]
 /// (one controller, so focus and paste stay simple). Submits automatically
@@ -39,7 +39,7 @@ class MagicLinkCodeField extends StatefulWidget {
   /// The expected code length. Defaults to 6.
   final int length;
 
-  /// Verifies [code]. Awaited by the field.
+  /// Verifies the entered `code`. Awaited by the field.
   final Future<void> Function(String code) onSubmitCode;
 
   /// Receives a [SocialSignInError] for diagnostics when verification fails.
