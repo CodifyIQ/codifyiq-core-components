@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'assignment_field.dart';
+import 'assignment_role.dart';
 import 'group.dart';
 import 'group_chip.dart';
 import 'group_picker.dart';
@@ -60,6 +61,16 @@ import 'group_picker.dart';
 /// still assigned, still counted, and still shown (as locked or removable)
 /// the moment the row expands.
 ///
+/// **Roles.** Pass [roles] to qualify each assignment — e.g. a group that can
+/// *view* a folder versus one that can *edit* it. Each chip then reads
+/// `name · role` from [rolesById], and tapping the role opens a menu of
+/// [roles] that reports a pick through [onRoleChanged]. Groups the picker adds
+/// are reported through [onChanged] first, then through [onRoleChanged] with
+/// [defaultRoleId]. Locked chips, and every chip when the field is disabled,
+/// show their role but can't change it. The field never stores roles: the
+/// caller owns [rolesById] just as it owns [selected]. With [roles] empty (the
+/// default) the field behaves exactly as without roles.
+///
 /// This widget is value-driven and stateless with respect to membership — the
 /// caller owns [selected] and applies updates in [onChanged]. Wire it to a
 /// [GroupManagerController] from the caller, for example to assign groups to a
@@ -104,6 +115,10 @@ class GroupAssignmentField extends StatelessWidget {
     this.maxVisibleChips,
     this.singleLine = false,
     this.sizeAnimationDuration = defaultSizeAnimationDuration,
+    this.roles = const <AssignmentRole>[],
+    this.rolesById = const <String, String>{},
+    this.defaultRoleId,
+    this.onRoleChanged,
   }) : assert(
          maxVisibleChips == null || maxVisibleChips > 0,
          'maxVisibleChips must be positive',
@@ -178,21 +193,64 @@ class GroupAssignmentField extends StatelessWidget {
   /// motion, so this never overrides a user's accessibility preference.
   final Duration sizeAnimationDuration;
 
+  /// The roles an assignment may carry, in the order the role menu lists
+  /// them. Empty (the default) turns roles off entirely: chips show the
+  /// group's name alone and the field behaves exactly as without roles. One
+  /// role set applies to every chip in the field.
+  final List<AssignmentRole> roles;
+
+  /// The current role id of each selected group, keyed by group id. A selected
+  /// id missing from this map shows no role but still opens the role menu, with
+  /// nothing checked, so it can be given one; a role id that isn't in [roles]
+  /// shows the raw id as its label and can still be changed. Ignored when [roles] is empty.
+  final Map<String, String> rolesById;
+
+  /// The role a group newly added through the picker starts with: after
+  /// reporting the new selection through [onChanged], the field calls
+  /// [onRoleChanged] with this id for each newly added group. `null` reports
+  /// no role, leaving new chips role-less until the user picks one from the
+  /// chip. Must be the id of one of [roles].
+  final String? defaultRoleId;
+
+  /// Called with a group id and its new role id — when the user picks a role
+  /// from a chip's role menu, or with [defaultRoleId] for each group the
+  /// picker adds. Picker adds are reported for every id the picker added, whether
+  /// or not you kept it in [onChanged], so ignore reports for ids you dropped.
+  /// The field never stores roles itself; apply the change to [rolesById].
+  /// When `null`, roles are display-only.
+  final void Function(String id, String roleId)? onRoleChanged;
+
   @override
   Widget build(BuildContext context) {
     final byId = {for (final group in groups) group.id: group};
     return AssignmentField(
-      entries: [for (final group in groups) (id: group.id, label: group.name)],
+      entries: [
+        for (final group in groups)
+          (
+            id: group.id,
+            label: group.name,
+            roleLabel: resolveRoleLabel(roles, rolesById, group.id),
+          ),
+      ],
       selected: selected,
       onChanged: onChanged,
       lockedIds: lockedIds,
-      chipBuilder: (id, {required locked, onDeleted}) => GroupChip(
-        // Only ids drawn from `entries` reach the builder, so the lookup
-        // always resolves.
-        group: byId[id]!,
-        locked: locked,
-        onDeleted: onDeleted,
-      ),
+      chipBuilder:
+          (
+            id, {
+            required locked,
+            onDeleted,
+            roleLabel,
+            onRolePressed,
+          }) => GroupChip(
+            // Only ids drawn from `entries` reach the builder, so the lookup
+            // always resolves.
+            group: byId[id]!,
+            locked: locked,
+            onDeleted: onDeleted,
+            roleLabel: roleLabel,
+            onRolePressed: onRolePressed,
+          ),
       openPicker: (context) => GroupPicker.show(
         context,
         groups: groups,
@@ -208,6 +266,10 @@ class GroupAssignmentField extends StatelessWidget {
       maxVisibleChips: maxVisibleChips,
       singleLine: singleLine,
       sizeAnimationDuration: sizeAnimationDuration,
+      roles: roles,
+      rolesById: rolesById,
+      defaultRoleId: defaultRoleId,
+      onRoleChanged: onRoleChanged,
     );
   }
 }

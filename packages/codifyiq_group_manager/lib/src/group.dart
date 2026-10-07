@@ -4,9 +4,11 @@ import 'group_color.dart';
 
 /// An authorization group that one or more principals (users) can belong to.
 ///
-/// Groups are flat — there is no nesting and no separate notion of roles. A
-/// principal is simply assigned one or more groups, and the host application
-/// derives whatever permissions it likes from that membership.
+/// Groups are flat — there is no nesting, and a group carries no role of its
+/// own. A principal is simply assigned one or more groups, and the host
+/// application derives whatever permissions it likes from that membership.
+/// When an app does need roles, they qualify an *assignment* — "this group can
+/// edit that folder" — via [AssignmentRole], not the group itself.
 ///
 /// Groups are immutable; produce modified copies with [copyWith]. Equality is
 /// by value across every field so that list widgets rebuild only when a group

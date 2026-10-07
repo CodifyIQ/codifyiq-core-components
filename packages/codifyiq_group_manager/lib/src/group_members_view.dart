@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'assignment_field.dart' show resolveRoleLabel;
+import 'assignment_role.dart';
 import 'bulk_selection_bar.dart';
 import 'group_manager_controller.dart';
 import 'member_picker.dart';
 import 'principal.dart';
 import 'principal_avatar.dart';
+import 'role_menu.dart';
 
 /// A complete, drop-in surface for managing one group's membership.
 ///
@@ -51,6 +54,19 @@ import 'principal_avatar.dart';
 /// withholds affordances, but [GroupManagerController.setMembers] still drops a
 /// locked member if called directly.
 ///
+/// ## Roles
+///
+/// Pass [roles] to qualify each membership — e.g. a group's *owner* versus a
+/// plain *member* — using the same contract as [MemberAssignmentField.roles].
+/// Each row then shows its role from [rolesById] as a trailing `Owner ▾`
+/// action beside Remove; tapping it opens a menu of the roles with the current
+/// one checked, and a pick is reported through [onRoleChanged]. With members
+/// selected, the selection bar gains a "Set role" action that applies one role
+/// to every selected member in a single [onRoleChanged] call. Members the
+/// picker adds are reported through [onMembersAdded] first, then through
+/// [onRoleChanged] with [defaultRoleId]. Locked rows show their role but can't
+/// change it. The view never stores roles: apply each change to [rolesById].
+///
 /// ## Wiring to a repository
 ///
 /// By default, membership changes apply directly to the controller — perfect
@@ -78,6 +94,10 @@ class GroupMembersView extends StatefulWidget {
     this.footer,
     this.avatarHeaders,
     this.avatarImageProviderBuilder,
+    this.roles = const <AssignmentRole>[],
+    this.rolesById = const <String, String>{},
+    this.defaultRoleId,
+    this.onRoleChanged,
   });
 
   /// Id of the group whose membership this manages.
@@ -150,6 +170,32 @@ class GroupMembersView extends StatefulWidget {
   /// See [PrincipalAvatar.imageProviderBuilder].
   final PrincipalAvatarImageProviderBuilder? avatarImageProviderBuilder;
 
+  /// The roles a membership may carry, in the order the role menu lists them.
+  /// Empty (the default) turns roles off entirely: rows show no role and the
+  /// view behaves exactly as without roles.
+  final List<AssignmentRole> roles;
+
+  /// The current role id of each member, keyed by member id. A member missing
+  /// from this map shows "Set role" in place of a role but still opens the menu,
+  /// with nothing checked, so it can be given one; a role id that isn't in
+  /// [roles] shows the raw id and can still be changed. Ignored when [roles] is
+  /// empty.
+  final Map<String, String> rolesById;
+
+  /// The role a member newly added through the picker starts with: after
+  /// [onMembersAdded], [onRoleChanged] fires with the added ids and this role.
+  /// `null` reports no role, leaving new rows role-less until the user picks
+  /// one. Must be the id of one of [roles].
+  final String? defaultRoleId;
+
+  /// Called with the affected member ids and their new role id — one id when
+  /// picked from a row's menu, the whole selection from the bulk "Set role"
+  /// action, or the picker's additions with [defaultRoleId].
+  ///
+  /// The view never stores roles itself; apply the change to [rolesById].
+  /// When `null`, roles are display-only.
+  final void Function(Set<String> ids, String roleId)? onRoleChanged;
+
   @override
   State<GroupMembersView> createState() => _GroupMembersViewState();
 }
@@ -160,6 +206,18 @@ class _GroupMembersViewState extends State<GroupMembersView> {
 
   /// Ids checked for bulk removal. Cleared once applied.
   final Set<String> _selected = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    final defaultRoleId = widget.defaultRoleId;
+    assert(
+      widget.roles.isEmpty ||
+          defaultRoleId == null ||
+          widget.roles.any((role) => role.id == defaultRoleId),
+      'defaultRoleId must be the id of one of roles',
+    );
+  }
 
   @override
   void dispose() {
@@ -211,6 +269,40 @@ class _GroupMembersViewState extends State<GroupMembersView> {
     setState(() => _selected.removeAll(removed));
     if (added.isNotEmpty) widget.onMembersAdded?.call(added);
     if (removed.isNotEmpty) widget.onMembersRemoved?.call(removed);
+
+    // Like the fields, the view never stores roles: it reports the default
+    // role for each newly added member and leaves applying it to the caller.
+    final defaultRoleId = widget.defaultRoleId;
+    final onRoleChanged = widget.onRoleChanged;
+    if (added.isNotEmpty &&
+        widget.roles.isNotEmpty &&
+        defaultRoleId != null &&
+        onRoleChanged != null) {
+      onRoleChanged(added, defaultRoleId);
+    }
+  }
+
+  /// Whether roles can be changed from this surface: roles are on and a
+  /// listener is wired. Locked rows are excluded separately, per row.
+  bool get _canChangeRoles =>
+      widget.roles.isNotEmpty && widget.onRoleChanged != null;
+
+  void _setRole(Set<String> ids, String roleId) {
+    if (ids.isEmpty) return;
+    setState(() => _selected.removeAll(ids));
+    widget.onRoleChanged?.call(ids, roleId);
+  }
+
+  /// The role shared by every selected member, so the bulk menu can check it;
+  /// `null` when the selection is mixed or any member has no role.
+  String? _commonRoleId() {
+    String? common;
+    for (final id in _selected) {
+      final roleId = widget.rolesById[id];
+      if (roleId == null || (common != null && roleId != common)) return null;
+      common = roleId;
+    }
+    return common;
   }
 
   Future<void> _remove(
@@ -329,6 +421,18 @@ class _GroupMembersViewState extends State<GroupMembersView> {
                     ),
                   ),
                   actions: [
+                    if (_canChangeRoles)
+                      RoleMenu(
+                        roles: widget.roles,
+                        currentRoleId: _commonRoleId(),
+                        onSelected: (roleId) =>
+                            _setRole(Set.of(_selected), roleId),
+                        builder: (onRolePressed) => IconButton(
+                          tooltip: 'Set role',
+                          icon: const Icon(Icons.badge_outlined),
+                          onPressed: onRolePressed,
+                        ),
+                      ),
                     IconButton(
                       tooltip: 'Remove from group',
                       icon: const Icon(Icons.person_remove_outlined),
@@ -348,6 +452,11 @@ class _GroupMembersViewState extends State<GroupMembersView> {
                   footer: widget.footer,
                   avatarHeaders: widget.avatarHeaders,
                   avatarImageProviderBuilder: widget.avatarImageProviderBuilder,
+                  roles: widget.roles,
+                  rolesById: widget.rolesById,
+                  onRoleChanged: _canChangeRoles
+                      ? (id, roleId) => _setRole(<String>{id}, roleId)
+                      : null,
                   onSelectionChanged: (id, checked) => setState(() {
                     if (checked) {
                       _selected.add(id);
@@ -457,6 +566,9 @@ class _MemberList extends StatelessWidget {
     required this.footer,
     required this.avatarHeaders,
     required this.avatarImageProviderBuilder,
+    required this.roles,
+    required this.rolesById,
+    required this.onRoleChanged,
     required this.onSelectionChanged,
     required this.onRemove,
   });
@@ -470,6 +582,11 @@ class _MemberList extends StatelessWidget {
   final Widget? footer;
   final Map<String, String>? avatarHeaders;
   final PrincipalAvatarImageProviderBuilder? avatarImageProviderBuilder;
+  final List<AssignmentRole> roles;
+  final Map<String, String> rolesById;
+
+  /// `null` when roles are off or display-only.
+  final void Function(String id, String roleId)? onRoleChanged;
   final void Function(String id, bool checked) onSelectionChanged;
   final ValueChanged<String> onRemove;
 
@@ -486,6 +603,7 @@ class _MemberList extends StatelessWidget {
         // The footer trails the rows as the final scrolling item.
         if (hasFooter && index == members.length) return footer;
         final member = members[index];
+        final onRoleChanged = this.onRoleChanged;
         return _MemberRow(
           // Keyed by id, not index, so per-row state stays attached to the
           // right member when a removal shifts everyone below it up one index.
@@ -495,6 +613,16 @@ class _MemberList extends StatelessWidget {
           locked: lockedIds.contains(member.id),
           avatarHeaders: avatarHeaders,
           avatarImageProviderBuilder: avatarImageProviderBuilder,
+          hasRoles: roles.isNotEmpty,
+          roleLabel: resolveRoleLabel(roles, rolesById, member.id),
+          roleMenu: onRoleChanged == null
+              ? null
+              : (builder) => RoleMenu(
+                  roles: roles,
+                  currentRoleId: rolesById[member.id],
+                  onSelected: (roleId) => onRoleChanged(member.id, roleId),
+                  builder: builder,
+                ),
           onSelectionChanged: (checked) =>
               onSelectionChanged(member.id, checked),
           onRemove: () => onRemove(member.id),
@@ -512,6 +640,9 @@ class _MemberRow extends StatelessWidget {
     required this.locked,
     required this.avatarHeaders,
     required this.avatarImageProviderBuilder,
+    required this.hasRoles,
+    required this.roleLabel,
+    required this.roleMenu,
     required this.onSelectionChanged,
     required this.onRemove,
   });
@@ -521,12 +652,58 @@ class _MemberRow extends StatelessWidget {
   final bool locked;
   final Map<String, String>? avatarHeaders;
   final PrincipalAvatarImageProviderBuilder? avatarImageProviderBuilder;
+
+  /// Whether the view has roles at all; `false` renders no role affordance.
+  final bool hasRoles;
+
+  /// This member's resolved role label, or `null` for a member with no role.
+  final String? roleLabel;
+
+  /// Wraps the role action in its menu, or `null` when roles are display-only.
+  final Widget Function(Widget Function(VoidCallback onRolePressed) builder)?
+  roleMenu;
   final ValueChanged<bool> onSelectionChanged;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final roleMenu = this.roleMenu;
+    final Widget? role = !hasRoles
+        ? null
+        // A locked row — or a display-only view — shows its role read-only.
+        : locked || roleMenu == null
+        ? _RoleLabel(roleLabel: roleLabel, name: principal.name)
+        : roleMenu(
+            (onRolePressed) => TextButton.icon(
+              onPressed: onRolePressed,
+              icon: const Icon(Icons.arrow_drop_down, size: 18),
+              iconAlignment: IconAlignment.end,
+              label: Semantics(
+                label: roleLabel == null
+                    ? '${principal.name}, no role, change role'
+                    : '${principal.name}, $roleLabel, change role',
+                excludeSemantics: true,
+                child: Text(roleLabel ?? 'Set role'),
+              ),
+            ),
+          );
+    final Widget action = locked
+        // A lock badge explains the missing Remove action so its absence
+        // doesn't read as a bug — matching GroupListView's locked rows.
+        ? Tooltip(
+            message: "Locked — can't be removed",
+            child: Icon(
+              Icons.lock_outline,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : IconButton(
+            icon: const Icon(Icons.person_remove_outlined),
+            tooltip: 'Remove ${principal.name}',
+            onPressed: onRemove,
+          );
     return ListTile(
       leading: _SelectableAvatar(
         principal: principal,
@@ -545,22 +722,41 @@ class _MemberRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: locked
-          // A lock badge explains the missing Remove action so its absence
-          // doesn't read as a bug — matching GroupListView's locked rows.
-          ? Tooltip(
-              message: "Locked — can't be removed",
-              child: Icon(
-                Icons.lock_outline,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          : IconButton(
-              icon: const Icon(Icons.person_remove_outlined),
-              tooltip: 'Remove ${principal.name}',
-              onPressed: onRemove,
+      trailing: role == null
+          ? action
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [role, const SizedBox(width: 4), action],
             ),
+    );
+  }
+}
+
+/// A member's role shown read-only — on a locked row, or when the view has no
+/// `onRoleChanged` — de-emphasized like the role on a chip.
+class _RoleLabel extends StatelessWidget {
+  const _RoleLabel({required this.roleLabel, required this.name});
+
+  final String? roleLabel;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = roleLabel;
+    if (label == null) return const SizedBox.shrink();
+    return Semantics(
+      label: '$name, $label',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

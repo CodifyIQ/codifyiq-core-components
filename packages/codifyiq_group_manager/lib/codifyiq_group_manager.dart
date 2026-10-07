@@ -2,6 +2,7 @@
 /// them to principals — from either end of the relation.
 library;
 
+export 'src/assignment_role.dart';
 export 'src/bulk_selection_bar.dart';
 export 'src/group.dart';
 export 'src/group_assignment_field.dart';

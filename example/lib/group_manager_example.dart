@@ -49,6 +49,11 @@ import 'package:flutter/material.dart';
 /// permanent group the folders rely on can't be deleted out from under them by
 /// any path. All three tabs are driven by a single UI-only controller — edits
 /// on one are reflected on the others.
+///
+/// The third tab closes with a "Share with a role" card: the same two
+/// assignment fields given `roles`, so each chip carries a role (view / edit /
+/// manage for a folder's groups, owner / member for a team) that a tap on the
+/// chip changes.
 class GroupManagerExample extends StatefulWidget {
   /// Creates a [GroupManagerExample].
   const GroupManagerExample({super.key});
@@ -175,6 +180,34 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
     'admins': {'ada'},
   };
 
+  /// Roles a membership can carry inside a group. Opaque to the package: it
+  /// shows the labels and reports the ids.
+  static const List<AssignmentRole> _memberRoles = [
+    AssignmentRole(id: 'owner', label: 'Owner', description: 'Can manage'),
+    AssignmentRole(id: 'member', label: 'Member'),
+  ];
+
+  /// Each member's role per group, keyed `groupId → memberId → roleId`. Owned
+  /// here because the widgets never store roles — they only report changes.
+  Map<String, Map<String, String>> _memberRolesByGroup = {
+    'admins': {'ada': 'owner'},
+    'editors': {'ada': 'owner', 'grace': 'member', 'margaret': 'member'},
+    'viewers': {'ada': 'owner', 'katherine': 'member', 'margaret': 'member'},
+    'billing': {'ada': 'owner'},
+  };
+
+  void _setMemberRoles(String groupId, Set<String> ids, String roleId) {
+    setState(() {
+      _memberRolesByGroup = {
+        ..._memberRolesByGroup,
+        groupId: {
+          ...?_memberRolesByGroup[groupId],
+          for (final id in ids) id: roleId,
+        },
+      };
+    });
+  }
+
   /// The demo roster, owned here so both the Members tab (which can delete a
   /// member) and the group drill-down (which offers members to add) see the
   /// same people.
@@ -219,6 +252,9 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
               roster: _roster,
               lockedGroups: _lockedGroups,
               lockedMembers: _lockedMembers,
+              memberRoles: _memberRoles,
+              memberRolesByGroup: _memberRolesByGroup,
+              onMemberRolesChanged: _setMemberRoles,
             ),
             _MembersTab(
               controller: _controller,
@@ -228,6 +264,7 @@ class _GroupManagerExampleState extends State<GroupManagerExample> {
             ),
             _FoldersTab(
               controller: _controller,
+              roster: _roster,
               currentUserId: 'ada',
               lockedGroups: _lockedGroups,
             ),
@@ -251,6 +288,9 @@ class _GroupsTab extends StatelessWidget {
     required this.roster,
     required this.lockedGroups,
     required this.lockedMembers,
+    required this.memberRoles,
+    required this.memberRolesByGroup,
+    required this.onMemberRolesChanged,
   });
 
   final GroupManagerController controller;
@@ -264,38 +304,43 @@ class _GroupsTab extends StatelessWidget {
   /// Per-group members that can't be removed, e.g. a group's owner.
   final Map<String, Set<String>> lockedMembers;
 
+  /// Owner / member roles offered on every group's member rows.
+  final List<AssignmentRole> memberRoles;
+
+  /// Current role per member, per group — `groupId → memberId → roleId`.
+  final Map<String, Map<String, String>> memberRolesByGroup;
+
+  final void Function(String groupId, Set<String> ids, String roleId)
+  onMemberRolesChanged;
+
   void _openMembers(BuildContext context, Group group) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: Text(group.name),
-            actions: const [BrightnessButton()],
-          ),
-          body: GroupMembersView(
-            // Keyed by id, not by the Group value: renaming the group
-            // elsewhere is reflected here rather than showing a stale name.
-            groupId: group.id,
-            roster: roster,
-            controller: controller,
-            lockedMemberIds: lockedMembers[group.id] ?? const <String>{},
-            footer: Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: _FooterNote(
-                lockedMembers.containsKey(group.id)
-                    ? 'Ada owns this group, so her row is locked: no remove '
-                          'action, not selectable for a bulk removal, and '
-                          'checked-and-disabled in the picker. Everyone else '
-                          'can be removed. Whether a membership is permanent '
-                          'is your app\'s decision — the widget takes a '
-                          '`lockedMemberIds` set and renders the result.'
-                    : 'Adding or removing members here writes the same '
-                          'assignment data the Members tab reads — the two '
-                          'are mirror images of one relation, not separate '
-                          'stores. Switch tabs after a change to see it.',
-              ),
-            ),
-          ),
+        builder: (_) => _GroupMembersPage(
+          group: group,
+          roster: roster,
+          controller: controller,
+          lockedMemberIds: lockedMembers[group.id] ?? const <String>{},
+          roles: memberRoles,
+          rolesById: memberRolesByGroup[group.id] ?? const {},
+          onRoleChanged: (ids, roleId) =>
+              onMemberRolesChanged(group.id, ids, roleId),
+          note: lockedMembers.containsKey(group.id)
+              ? 'Ada owns this group, so her row is locked: no remove '
+                    'action, not selectable for a bulk removal, '
+                    'checked-and-disabled in the picker, and her Owner role '
+                    'is read-only. Everyone else can be removed or given a '
+                    'different role — from the row, or in bulk with "Set '
+                    'role". Whether a membership is permanent is your '
+                    'app\'s decision — the widget takes a `lockedMemberIds` '
+                    'set and renders the result.'
+              : 'Each row shows the member\'s role; tap it to change it, or '
+                    'select several and use "Set role" to change them all at '
+                    'once. Someone added through "Edit members" starts as a '
+                    'Member. Adding or removing members here writes the same '
+                    'assignment data the Members tab reads — the two are '
+                    'mirror images of one relation, not separate stores. '
+                    'Switch tabs after a change to see it.',
         ),
       ),
     );
@@ -322,6 +367,73 @@ class _GroupsTab extends StatelessWidget {
           "constant, the signed-in user's role, a per-resource policy, whatever "
           'fits. The widget takes a `lockedIds` set and withholds the delete '
           'action; it does not decide what is locked.',
+        ),
+      ),
+    );
+  }
+}
+
+/// One group's member page: a [GroupMembersView] with owner/member roles. The
+/// roles live in the example's top-level state and arrive here as plain values
+/// — the view never stores them, it only reports a change through
+/// `onRoleChanged`.
+class _GroupMembersPage extends StatefulWidget {
+  const _GroupMembersPage({
+    required this.group,
+    required this.roster,
+    required this.controller,
+    required this.lockedMemberIds,
+    required this.roles,
+    required this.rolesById,
+    required this.onRoleChanged,
+    required this.note,
+  });
+
+  final Group group;
+  final List<Principal> roster;
+  final GroupManagerController controller;
+  final Set<String> lockedMemberIds;
+  final List<AssignmentRole> roles;
+  final Map<String, String> rolesById;
+  final void Function(Set<String> ids, String roleId) onRoleChanged;
+  final String note;
+
+  @override
+  State<_GroupMembersPage> createState() => _GroupMembersPageState();
+}
+
+class _GroupMembersPageState extends State<_GroupMembersPage> {
+  /// Local copy of the roles, so a change renders on this page immediately;
+  /// the parent (a route below, which doesn't rebuild this one) is told too.
+  late Map<String, String> _rolesById = widget.rolesById;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.group.name),
+        actions: const [BrightnessButton()],
+      ),
+      body: GroupMembersView(
+        // Keyed by id, not by the Group value: renaming the group elsewhere
+        // is reflected here rather than showing a stale name.
+        groupId: widget.group.id,
+        roster: widget.roster,
+        controller: widget.controller,
+        lockedMemberIds: widget.lockedMemberIds,
+        roles: widget.roles,
+        rolesById: _rolesById,
+        defaultRoleId: 'member',
+        onRoleChanged: (ids, roleId) {
+          setState(
+            () =>
+                _rolesById = {..._rolesById, for (final id in ids) id: roleId},
+          );
+          widget.onRoleChanged(ids, roleId);
+        },
+        footer: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: _FooterNote(widget.note),
         ),
       ),
     );
@@ -692,11 +804,13 @@ class _MembersTabState extends State<_MembersTab> {
 class _FoldersTab extends StatelessWidget {
   const _FoldersTab({
     required this.controller,
+    required this.roster,
     required this.currentUserId,
     required this.lockedGroups,
   });
 
   final GroupManagerController controller;
+  final List<Principal> roster;
   final String currentUserId;
 
   /// Groups that always have access to every folder, regardless of sharing.
@@ -792,7 +906,9 @@ class _FoldersTab extends StatelessWidget {
                   _folderCard(context, folder, grantable),
                   const SizedBox(height: 12),
                 ],
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
+                _RoleSharingDemo(groups: controller.groups, roster: roster),
+                const SizedBox(height: 16),
                 const _FooterNote(
                   'Above, "Administrators" is locked: its chip has no remove '
                   'affordance here (and its catalog row offers no delete), so '
@@ -809,6 +925,92 @@ class _FoldersTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// "Share with a role": per-assignment roles on both assignment fields.
+///
+/// A folder shared with groups that can view, edit, or manage it, and a
+/// project whose members are owners or plain members. Roles are local demo
+/// state, held here rather than in the controller — the fields never store
+/// roles, they only report changes through `onRoleChanged`.
+class _RoleSharingDemo extends StatefulWidget {
+  const _RoleSharingDemo({required this.groups, required this.roster});
+
+  final List<Group> groups;
+  final List<Principal> roster;
+
+  @override
+  State<_RoleSharingDemo> createState() => _RoleSharingDemoState();
+}
+
+class _RoleSharingDemoState extends State<_RoleSharingDemo> {
+  static const List<AssignmentRole> _folderRoles = [
+    AssignmentRole(id: 'view', label: 'Can view', description: 'Read only'),
+    AssignmentRole(
+      id: 'edit',
+      label: 'Can edit',
+      description: 'Change files and folders',
+    ),
+    AssignmentRole(
+      id: 'manage',
+      label: 'Can manage',
+      description: 'Edit, plus share with others',
+    ),
+  ];
+
+  static const List<AssignmentRole> _memberRoles = [
+    AssignmentRole(id: 'owner', label: 'Owner'),
+    AssignmentRole(id: 'member', label: 'Member'),
+  ];
+
+  Set<String> _sharedGroups = {'admins', 'editors'};
+  Map<String, String> _groupRoles = {'admins': 'manage', 'editors': 'edit'};
+  Set<String> _members = {'ada', 'grace'};
+  Map<String, String> _memberRolesById = {'ada': 'owner', 'grace': 'member'};
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Share with a role',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            GroupAssignmentField(
+              label: 'Design Archive',
+              groups: widget.groups,
+              selected: _sharedGroups,
+              onChanged: (ids) => setState(() => _sharedGroups = ids),
+              roles: _folderRoles,
+              rolesById: _groupRoles,
+              defaultRoleId: 'view',
+              onRoleChanged: (id, roleId) =>
+                  setState(() => _groupRoles = {..._groupRoles, id: roleId}),
+              editLabel: 'Manage access',
+            ),
+            const SizedBox(height: 16),
+            MemberAssignmentField(
+              label: 'Project Apollo team',
+              roster: widget.roster,
+              selected: _members,
+              onChanged: (ids) => setState(() => _members = ids),
+              roles: _memberRoles,
+              rolesById: _memberRolesById,
+              defaultRoleId: 'member',
+              onRoleChanged: (id, roleId) => setState(
+                () => _memberRolesById = {..._memberRolesById, id: roleId},
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'chip_role_label.dart';
 import 'principal.dart';
 import 'principal_avatar.dart';
 
@@ -12,6 +13,11 @@ import 'principal_avatar.dart';
 /// renders as a removable [InputChip] — the shape used inside
 /// [MemberAssignmentField] for an assigned member. With neither, it renders as a
 /// static, read-only chip suitable for compact membership summaries.
+///
+/// Set [roleLabel] to show the assignment's role after the name
+/// (`name · role`), and [onRolePressed] to make a tap on the chip change that
+/// role, cued by a drop-down glyph — the shape the assignment fields use when
+/// given roles.
 class PrincipalChip extends StatelessWidget {
   /// Creates a [PrincipalChip] for [principal].
   const PrincipalChip({
@@ -20,6 +26,8 @@ class PrincipalChip extends StatelessWidget {
     this.onDeleted,
     this.onPressed,
     this.locked = false,
+    this.roleLabel,
+    this.onRolePressed,
     this.headers,
     this.imageProviderBuilder,
   });
@@ -31,7 +39,8 @@ class PrincipalChip extends StatelessWidget {
   /// [locked] — the chip shows a trailing delete icon.
   final VoidCallback? onDeleted;
 
-  /// Called when the user taps the chip body.
+  /// Called when the user taps the chip body — unless [onRolePressed] takes
+  /// the tap to change the chip's role.
   final VoidCallback? onPressed;
 
   /// Whether the principal is a permanent member. A locked chip shows a
@@ -39,6 +48,20 @@ class PrincipalChip extends StatelessWidget {
   /// both [onDeleted] and [onPressed] are ignored. The lock cue matches the
   /// locked rows in [MemberPicker] and the locked chips in [GroupChip].
   final bool locked;
+
+  /// The role this principal's assignment carries, shown after the name as
+  /// `name · role` in a de-emphasized color. Display only — pair it with
+  /// [onRolePressed] to let the user change it. When `null` (the default) the
+  /// chip shows the name alone.
+  final String? roleLabel;
+
+  /// Called when the user taps the chip to change its role. When non-null and
+  /// the chip is not [locked], the label gains a trailing drop-down glyph and
+  /// a tap on the chip body (anywhere but the delete icon) calls this *instead
+  /// of* [onPressed]: Material chips route every such tap to a single target.
+  /// Works with a `null` [roleLabel] too, for a chip that has no role yet.
+  /// Ignored on a [locked] chip, whose role is as fixed as its membership.
+  final VoidCallback? onRolePressed;
 
   /// HTTP headers forwarded to the avatar's image provider — see
   /// [PrincipalAvatar.headers].
@@ -61,7 +84,17 @@ class PrincipalChip extends StatelessWidget {
         imageProviderBuilder: imageProviderBuilder,
       ),
     );
-    final label = Text(principal.name);
+    final canChangeRole = !locked && onRolePressed != null;
+    final Widget label = roleLabel == null && !canChangeRole
+        ? Text(principal.name)
+        : ChipRoleLabel(
+            name: principal.name,
+            roleLabel: roleLabel,
+            canChangeRole: canChangeRole,
+          );
+    // Material chips route every tap outside the delete icon to one target, so
+    // the role menu takes the chip-body tap when the role can change.
+    final onBodyPressed = canChangeRole ? onRolePressed : onPressed;
 
     if (locked) {
       // A trailing lock glyph stands in for the delete affordance, so a
@@ -90,14 +123,14 @@ class PrincipalChip extends StatelessWidget {
       return InputChip(
         avatar: avatar,
         label: label,
-        onPressed: onPressed,
+        onPressed: onBodyPressed,
         onDeleted: onDeleted,
         deleteButtonTooltipMessage: 'Remove ${principal.name}',
       );
     }
 
-    return onPressed != null
-        ? ActionChip(avatar: avatar, label: label, onPressed: onPressed)
+    return onBodyPressed != null
+        ? ActionChip(avatar: avatar, label: label, onPressed: onBodyPressed)
         : Chip(avatar: avatar, label: label);
   }
 }

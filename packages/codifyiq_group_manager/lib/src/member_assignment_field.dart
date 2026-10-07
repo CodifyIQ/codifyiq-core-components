@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'assignment_field.dart';
+import 'assignment_role.dart';
 import 'group_assignment_field.dart';
 import 'member_picker.dart';
 import 'principal.dart';
@@ -41,6 +42,13 @@ import 'principal_chip.dart';
 /// with wrapping chips by default, [maxVisibleChips] to cap them behind a
 /// "+N more" chip, and [singleLine] for a dense, grid-like list of many groups.
 ///
+/// **Roles.** Pass [roles] to qualify each membership — e.g. an *owner* versus
+/// a plain *member* of the group. Behavior mirrors
+/// [GroupAssignmentField.roles]: chips read `name · role` from [rolesById],
+/// tapping the role opens a menu that reports a pick through [onRoleChanged],
+/// members the picker adds are reported with [defaultRoleId], and locked or
+/// disabled chips show their role read-only.
+///
 /// Wire it to a [GroupManagerController] from the caller:
 ///
 /// ```dart
@@ -74,6 +82,10 @@ class MemberAssignmentField extends StatelessWidget {
         GroupAssignmentField.defaultSizeAnimationDuration,
     this.avatarHeaders,
     this.avatarImageProviderBuilder,
+    this.roles = const <AssignmentRole>[],
+    this.rolesById = const <String, String>{},
+    this.defaultRoleId,
+    this.onRoleChanged,
   }) : assert(
          maxVisibleChips == null || maxVisibleChips > 0,
          'maxVisibleChips must be positive',
@@ -140,26 +152,66 @@ class MemberAssignmentField extends StatelessWidget {
   /// and in the picker — see [PrincipalAvatar.imageProviderBuilder].
   final PrincipalAvatarImageProviderBuilder? avatarImageProviderBuilder;
 
+  /// The roles an assignment may carry, in the order the role menu lists
+  /// them. Empty (the default) turns roles off entirely: chips show the
+  /// member's name alone and the field behaves exactly as without roles. One
+  /// role set applies to every chip in the field.
+  final List<AssignmentRole> roles;
+
+  /// The current role id of each selected member, keyed by member id. A selected
+  /// id missing from this map shows no role but still opens the role menu, with
+  /// nothing checked, so it can be given one; a role id that isn't in [roles]
+  /// shows the raw id as its label and can still be changed. Ignored when [roles] is empty.
+  final Map<String, String> rolesById;
+
+  /// The role a member newly added through the picker starts with: after
+  /// reporting the new selection through [onChanged], the field calls
+  /// [onRoleChanged] with this id for each newly added member. `null` reports
+  /// no role, leaving new chips role-less until the user picks one from the
+  /// chip. Must be the id of one of [roles].
+  final String? defaultRoleId;
+
+  /// Called with a member id and its new role id — when the user picks a role
+  /// from a chip's role menu, or with [defaultRoleId] for each member the
+  /// picker adds. Picker adds are reported for every id the picker added, whether
+  /// or not you kept it in [onChanged], so ignore reports for ids you dropped.
+  /// The field never stores roles itself; apply the change to [rolesById].
+  /// When `null`, roles are display-only.
+  final void Function(String id, String roleId)? onRoleChanged;
+
   @override
   Widget build(BuildContext context) {
     final byId = {for (final principal in roster) principal.id: principal};
     return AssignmentField(
       entries: [
         for (final principal in roster)
-          (id: principal.id, label: principal.name),
+          (
+            id: principal.id,
+            label: principal.name,
+            roleLabel: resolveRoleLabel(roles, rolesById, principal.id),
+          ),
       ],
       selected: selected,
       onChanged: onChanged,
       lockedIds: lockedIds,
-      chipBuilder: (id, {required locked, onDeleted}) => PrincipalChip(
-        // Only ids drawn from `entries` reach the builder, so the lookup
-        // always resolves.
-        principal: byId[id]!,
-        locked: locked,
-        onDeleted: onDeleted,
-        headers: avatarHeaders,
-        imageProviderBuilder: avatarImageProviderBuilder,
-      ),
+      chipBuilder:
+          (
+            id, {
+            required locked,
+            onDeleted,
+            roleLabel,
+            onRolePressed,
+          }) => PrincipalChip(
+            // Only ids drawn from `entries` reach the builder, so the lookup
+            // always resolves.
+            principal: byId[id]!,
+            locked: locked,
+            onDeleted: onDeleted,
+            roleLabel: roleLabel,
+            onRolePressed: onRolePressed,
+            headers: avatarHeaders,
+            imageProviderBuilder: avatarImageProviderBuilder,
+          ),
       openPicker: (context) => MemberPicker.show(
         context,
         roster: roster,
@@ -177,6 +229,10 @@ class MemberAssignmentField extends StatelessWidget {
       maxVisibleChips: maxVisibleChips,
       singleLine: singleLine,
       sizeAnimationDuration: sizeAnimationDuration,
+      roles: roles,
+      rolesById: rolesById,
+      defaultRoleId: defaultRoleId,
+      onRoleChanged: onRoleChanged,
     );
   }
 }
