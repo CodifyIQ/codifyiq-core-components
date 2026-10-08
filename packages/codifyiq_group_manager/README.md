@@ -233,7 +233,9 @@ field. Roles are opaque to the package — what they mean, and enforcing them, i
 a group's own roster can show who is an owner and who is a member. Each row gains an `Owner ▾`
 action beside Remove, and with members selected the selection bar offers **Set role** to apply one
 role to the whole selection — which is why its `onRoleChanged` receives a `Set<String>` of ids
-rather than one id. Locked members show their role but can't change it.
+rather than one id. Locked members show their role but can't change it. A row of chips under the
+search narrows the list to one role (combined with the search), and select-all and bulk actions
+apply only to the members shown.
 
 ```dart
 GroupMembersView(

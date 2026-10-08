@@ -2,7 +2,7 @@ name: codifyiq_group_manager
 description: >-
   Material 3 widgets for managing flat authorization groups, worked from either end:
   assign groups to a user, or add members to a group.
-version: 1.4.0
+version: 1.4.1
 homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_group_manager
 repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_group_manager
 issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues

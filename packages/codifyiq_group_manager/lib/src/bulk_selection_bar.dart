@@ -144,9 +144,14 @@ class BulkSelectionBar extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              selectedCount == 0 ? emptyLabel : '$selectedCount selected',
-              style: theme.textTheme.labelLarge,
+            // Yields to the selector on a narrow bar rather than overflowing.
+            Flexible(
+              child: Text(
+                selectedCount == 0 ? emptyLabel : '$selectedCount selected',
+                style: theme.textTheme.labelLarge,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
