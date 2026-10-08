@@ -1,3 +1,13 @@
+## 1.4.0
+
+* Optional per-assignment **roles** on `GroupAssignmentField` and `MemberAssignmentField` — e.g. a group that can *view* a folder versus one that can *edit* it, or a group's *owner* versus a plain *member*. Pass `roles` (a list of the new `AssignmentRole`: id, label, optional description) and `rolesById` (the current role per selected id), and each chip reads `name · role ▾`; tapping it opens a keyboard-reachable menu of the roles, with the current one checked and each description as a secondary line, and a pick is reported through `onRoleChanged(id, roleId)`. Items added through the picker are reported through `onChanged` as before, then through `onRoleChanged` with `defaultRoleId`. The fields stay value-driven — they never store roles, so apply each change to your own `rolesById`.
+* Locked chips, and every chip in a disabled field, show their role but can't change it. A selected id missing from `rolesById` shows no role but still opens the menu with nothing checked, so it can be given one; a role id that isn't in `roles` shows the raw id and can still be changed.
+* `singleLine` and `maxVisibleChips` account for the role's width, so overflow behind "+N more" stays correct.
+* One role set applies to every chip in a field; per-group role sets are not supported.
+* `GroupChip` and `PrincipalChip` take an optional `roleLabel` (display only) for read-only summaries, plus `onRolePressed`, which shows a drop-down glyph and takes the chip-body tap in place of `onPressed`.
+* With `roles` omitted, both fields render and behave exactly as before.
+* `GroupMembersView` takes the same `roles`, `rolesById`, and `defaultRoleId`, so a group's own roster can show who is an *owner* and who is a plain *member*. Each row shows its role as an `Owner ▾` action beside Remove that opens the same role menu; with members selected, the selection bar offers **Set role** to apply one role to every selected member at once. Because of that bulk path, its `onRoleChanged(Set<String> ids, String roleId)` receives a set of ids. Members added through "Edit members" are reported through `onMembersAdded` first, then through `onRoleChanged` with `defaultRoleId`. Locked members show their role read-only, a member missing from `rolesById` shows "Set role" and can be given one, and with `onRoleChanged` omitted roles are display-only. With `roles` omitted the view renders and behaves exactly as before.
+
 ## 1.3.0
 
 * Membership can now be managed from **either end** of the relation. Everything that assigns groups to a member has a mirror that adds members to a group; both read and write the same assignments, so an edit made from one side is immediately visible from the other.

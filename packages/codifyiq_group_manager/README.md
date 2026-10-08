@@ -4,9 +4,10 @@
 
 Material 3 widgets for managing **flat authorization groups** and their membership — worked from
 either end: assign groups to a user, or add members to a group. Groups are intentionally simple —
-no nesting and no separate roles. A principal (a user, service account, or any subject you
-authorize) is just assigned one or more groups, and your app derives whatever permissions it likes
-from that membership.
+no nesting, and a group carries no role of its own. A principal (a user, service account, or any
+subject you authorize) is just assigned one or more groups, and your app derives whatever
+permissions it likes from that membership. When you do need roles, they qualify an *assignment*
+(see [Qualify an assignment with a role](#qualify-an-assignment-with-a-role)).
 
 This package is **UI-only**: it never talks to a backend. You drive the controller and wire its
 mutations to your own persistence layer.
@@ -19,7 +20,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_group_manager: ^1.3.0
+  codifyiq_group_manager: ^1.4.0
 ```
 
 ## Concepts
@@ -29,6 +30,7 @@ dependencies:
 | `Group` | Immutable group model (id, name, optional description/color/icon). |
 | `Principal` | Immutable member model (id, name, optional description/photo/icon). A photo can be a URL or an `ImageProvider`. |
 | `GroupColor` | Theme-derived accent role (resolves against `ColorScheme`). |
+| `AssignmentRole` | Optional role an assignment carries (id, label, optional description), e.g. "Can edit". |
 | `GroupManagerController` | UI-only state container for the catalog and assignments. |
 | `GroupManagerScope` | Inherited notifier exposing the controller to a subtree. |
 | `GroupManagerView` | Drop-in catalog screen (create / edit / delete + search). |
@@ -190,6 +192,62 @@ GroupAssignmentField(
   selected: controller.groupsFor('folder:${folder.id}'),
   onChanged: (ids) => controller.setAssignments('folder:${folder.id}', ids),
   pickerTitle: 'Share "${folder.name}" with your groups',
+);
+```
+
+### Qualify an assignment with a role
+
+When "assigned" isn't enough — this group can *view* the folder, that one can *edit* it — pass
+`roles` to `GroupAssignmentField` (or `MemberAssignmentField`, e.g. owner vs member). Each chip
+then reads `Engineering · Can edit ▾`, and tapping it opens a menu of the roles with the current
+one checked:
+
+```dart
+const roles = [
+  AssignmentRole(id: 'view', label: 'Can view'),
+  AssignmentRole(id: 'edit', label: 'Can edit', description: 'Change files'),
+  AssignmentRole(id: 'manage', label: 'Can manage', description: 'Edit and reshare'),
+];
+
+GroupAssignmentField(
+  groups: groups,
+  selected: shared,
+  onChanged: (ids) => setState(() => shared = ids),
+  roles: roles,
+  rolesById: roleOf,            // current role id per selected group id
+  defaultRoleId: 'view',        // role a newly picked group starts with
+  onRoleChanged: (groupId, roleId) =>
+      setState(() => roleOf = {...roleOf, groupId: roleId}),
+);
+```
+
+The field stays value-driven: it never stores roles, it reports them. A pick from a chip's menu
+calls `onRoleChanged`; groups added through the picker are reported through `onChanged` first,
+then through `onRoleChanged` with `defaultRoleId`. Locked chips — and every chip when the field
+is disabled — show their role but can't change it. A selected id missing from `rolesById` shows
+no role but still opens the menu, so it can be given one; a role id not in `roles` shows the raw id. One role set applies to every chip in a
+field. Roles are opaque to the package — what they mean, and enforcing them, is up to your app.
+`GroupChip` and `PrincipalChip` take a `roleLabel` too, for read-only summaries.
+
+`GroupMembersView` takes the same `roles` / `rolesById` / `defaultRoleId` / `onRoleChanged`, so
+a group's own roster can show who is an owner and who is a member. Each row gains an `Owner ▾`
+action beside Remove, and with members selected the selection bar offers **Set role** to apply one
+role to the whole selection — which is why its `onRoleChanged` receives a `Set<String>` of ids
+rather than one id. Locked members show their role but can't change it.
+
+```dart
+GroupMembersView(
+  groupId: group.id,
+  roster: allUsers,
+  controller: controller,
+  roles: const [
+    AssignmentRole(id: 'owner', label: 'Owner'),
+    AssignmentRole(id: 'member', label: 'Member'),
+  ],
+  rolesById: roleOf,            // current role id per member id
+  defaultRoleId: 'member',      // role a newly added member starts with
+  onRoleChanged: (ids, roleId) =>
+      setState(() => roleOf = {...roleOf, for (final id in ids) id: roleId}),
 );
 ```
 

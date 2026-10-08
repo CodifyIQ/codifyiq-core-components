@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
 
-/// One chip the field can render, reduced to what the layout needs: an id to
-/// key on and a label to measure.
-typedef AssignmentEntry = ({String id, String label});
+import 'assignment_role.dart';
+import 'role_menu.dart';
 
-/// Builds the chip for [id], already told whether it is locked and — when it is
-/// not — how to remove it.
+/// One chip the field can render, reduced to what the layout needs: an id to
+/// key on, and the label and resolved role label (if any) to measure.
+typedef AssignmentEntry = ({String id, String label, String? roleLabel});
+
+/// Builds the chip for [id], already told whether it is locked, how to remove
+/// it (when it is not locked), the role label to show (if any), and how to open
+/// the role menu (when the role can change).
 typedef AssignmentChipBuilder =
-    Widget Function(String id, {required bool locked, VoidCallback? onDeleted});
+    Widget Function(
+      String id, {
+      required bool locked,
+      VoidCallback? onDeleted,
+      String? roleLabel,
+      VoidCallback? onRolePressed,
+    });
+
+/// Resolves the role label for [id]: `null` when roles are off or [id] has no
+/// entry in [rolesById]; the matching [AssignmentRole.label] when there is one;
+/// otherwise the raw role id, so an unknown role still shows something.
+String? resolveRoleLabel(
+  List<AssignmentRole> roles,
+  Map<String, String> rolesById,
+  String id,
+) {
+  if (roles.isEmpty) return null;
+  final roleId = rolesById[id];
+  if (roleId == null) return null;
+  for (final role in roles) {
+    if (role.id == roleId) return role.label;
+  }
+  return roleId;
+}
 
 /// The chips-plus-edit-button layout shared by [GroupAssignmentField] and
 /// [MemberAssignmentField].
@@ -35,6 +62,10 @@ class AssignmentField extends StatefulWidget {
     this.maxVisibleChips,
     this.singleLine = false,
     required this.sizeAnimationDuration,
+    this.roles = const <AssignmentRole>[],
+    this.rolesById = const <String, String>{},
+    this.defaultRoleId,
+    this.onRoleChanged,
   }) : assert(
          maxVisibleChips == null || maxVisibleChips > 0,
          'maxVisibleChips must be positive',
@@ -85,6 +116,22 @@ class AssignmentField extends StatefulWidget {
   /// [Duration.zero] resizes instantly.
   final Duration sizeAnimationDuration;
 
+  /// Roles an assignment may carry. Empty turns the role feature off.
+  final List<AssignmentRole> roles;
+
+  /// Current role id per selected id. A selected id with no entry shows no
+  /// role but still offers the menu.
+  final Map<String, String> rolesById;
+
+  /// Role reported through [onRoleChanged] for each id the picker adds. `null`
+  /// leaves new ids role-less until the user picks one from the chip.
+  final String? defaultRoleId;
+
+  /// Called when an id's role changes, from the role menu or a picker add.
+  /// Picker adds are reported for every id the picker added, whether or not
+  /// the caller kept it in [onChanged].
+  final void Function(String id, String roleId)? onRoleChanged;
+
   @override
   State<AssignmentField> createState() => _AssignmentFieldState();
 }
@@ -105,8 +152,27 @@ class _AssignmentFieldState extends State<AssignmentField> {
   ];
 
   Future<void> _openPicker(BuildContext context) async {
+    // Snapshot before awaiting: the widget may rebuild with a new selection
+    // while the picker is open.
+    final before = <String>{...widget.selected, ...widget.lockedIds};
     final result = await widget.openPicker(context);
-    if (result != null) widget.onChanged(result);
+    if (result == null || !mounted) return;
+    widget.onChanged(result);
+
+    // The field never stores roles: it reports the default role for each id
+    // the picker added and leaves the caller to record it. It can't see what
+    // the caller kept in onChanged, so a caller that filters the selection
+    // should ignore role reports for ids it dropped.
+    final defaultRoleId = widget.defaultRoleId;
+    final onRoleChanged = widget.onRoleChanged;
+    if (widget.roles.isEmpty ||
+        defaultRoleId == null ||
+        onRoleChanged == null) {
+      return;
+    }
+    for (final id in result) {
+      if (!before.contains(id)) onRoleChanged(id, defaultRoleId);
+    }
   }
 
   void _remove(String id) {
@@ -118,12 +184,32 @@ class _AssignmentFieldState extends State<AssignmentField> {
     );
   }
 
+  /// Whether [entry]'s role can be changed from its chip: roles are on and
+  /// reported, and the chip is neither locked nor disabled. An entry with no
+  /// current role still qualifies, so it can be given one.
+  bool _canChangeRole(AssignmentEntry entry) =>
+      widget.roles.isNotEmpty &&
+      widget.onRoleChanged != null &&
+      widget.enabled &&
+      !widget.lockedIds.contains(entry.id);
+
   Widget _chip(AssignmentEntry entry) {
     final locked = widget.lockedIds.contains(entry.id);
-    return widget.chipBuilder(
+    Widget build([VoidCallback? onRolePressed]) => widget.chipBuilder(
       entry.id,
       locked: locked,
       onDeleted: (locked || !widget.enabled) ? null : () => _remove(entry.id),
+      roleLabel: entry.roleLabel,
+      onRolePressed: onRolePressed,
+    );
+
+    final onRoleChanged = widget.onRoleChanged;
+    if (onRoleChanged == null || !_canChangeRole(entry)) return build();
+    return RoleMenu(
+      roles: widget.roles,
+      currentRoleId: widget.rolesById[entry.id],
+      onSelected: (roleId) => onRoleChanged(entry.id, roleId),
+      builder: build,
     );
   }
 
@@ -158,6 +244,13 @@ class _AssignmentFieldState extends State<AssignmentField> {
 
   @override
   Widget build(BuildContext context) {
+    final defaultRoleId = widget.defaultRoleId;
+    assert(
+      widget.roles.isEmpty ||
+          defaultRoleId == null ||
+          widget.roles.any((role) => role.id == defaultRoleId),
+      'defaultRoleId must be the id of one of roles',
+    );
     return widget.singleLine
         ? _buildSingleLine(context)
         : _buildStacked(context);
@@ -382,8 +475,9 @@ class _AssignmentFieldState extends State<AssignmentField> {
       for (final entry in entries)
         _estimateChipWidth(
           context,
-          entry.label,
+          entry,
           removable: widget.enabled && !widget.lockedIds.contains(entry.id),
+          canChangeRole: _canChangeRole(entry),
         ),
     ];
 
@@ -417,19 +511,27 @@ class _AssignmentFieldState extends State<AssignmentField> {
 
   double _estimateChipWidth(
     BuildContext context,
-    String label, {
+    AssignmentEntry entry, {
     required bool removable,
+    required bool canChangeRole,
   }) {
     // M3 chip chrome this approximates: a 24dp avatar plus its gap to the
     // label, ~12dp label padding on each side, and — when removable — a
-    // trailing delete icon plus its gap.
+    // trailing delete icon plus its gap. A role adds its " · role" text and,
+    // when it can change, a trailing drop-down glyph.
     const avatarAndGap = 32.0;
     const labelPadding = 24.0;
     const deleteAffordance = 26.0;
+    const roleChevron = 22.0;
+    final roleLabel = entry.roleLabel;
+    final text = roleLabel == null
+        ? entry.label
+        : '${entry.label} · $roleLabel';
     return avatarAndGap +
         labelPadding +
-        _textWidth(context, label) +
-        (removable ? deleteAffordance : 0);
+        _textWidth(context, text) +
+        (removable ? deleteAffordance : 0) +
+        (canChangeRole ? roleChevron : 0);
   }
 
   double _estimateOverflowChipWidth(BuildContext context, int hiddenCount) {
