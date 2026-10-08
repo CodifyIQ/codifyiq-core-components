@@ -7,6 +7,7 @@ import 'group_manager_controller.dart';
 import 'member_picker.dart';
 import 'principal.dart';
 import 'principal_avatar.dart';
+import 'role_filter_bar.dart';
 import 'role_menu.dart';
 
 /// A complete, drop-in surface for managing one group's membership.
@@ -66,6 +67,11 @@ import 'role_menu.dart';
 /// picker adds are reported through [onMembersAdded] first, then through
 /// [onRoleChanged] with [defaultRoleId]. Locked rows show their role but can't
 /// change it. The view never stores roles: apply each change to [rolesById].
+///
+/// With roles on, a row of chips beneath the search field narrows the list to
+/// one role — "who owns this group?" — and combines with the search. Selecting
+/// all selects only the members shown, and switching the filter drops any
+/// selected member it hides, so bulk actions apply to what is on screen.
 ///
 /// ## Wiring to a repository
 ///
@@ -204,6 +210,9 @@ class _GroupMembersViewState extends State<GroupMembersView> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
 
+  /// The role id the list is narrowed to, or `null` for every member.
+  String? _roleFilter;
+
   /// Ids checked for bulk removal. Cleared once applied.
   final Set<String> _selected = <String>{};
 
@@ -220,6 +229,18 @@ class _GroupMembersViewState extends State<GroupMembersView> {
   }
 
   @override
+  void didUpdateWidget(GroupMembersView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A role change made outside this view — a sync, another admin — can move
+    // a selected member out of the filter. Drop it, so bulk actions never reach
+    // a member that is no longer shown.
+    final roleFilter = _activeRoleFilter?.id;
+    if (roleFilter != null && widget.rolesById != oldWidget.rolesById) {
+      _selected.removeWhere((id) => widget.rolesById[id] != roleFilter);
+    }
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();
@@ -230,8 +251,8 @@ class _GroupMembersViewState extends State<GroupMembersView> {
 
   /// The group's members, in roster order, plus a placeholder for any member id
   /// the roster doesn't cover — surfacing the gap rather than hiding the
-  /// assignment. Filtered by the current search query.
-  List<Principal> _members(Set<String> memberIds) {
+  /// assignment. Filtered by the current search query and role filter.
+  List<Principal> _members(Set<String> memberIds, String? roleFilter) {
     final known = {for (final p in widget.roster) p.id};
     final resolved = <Principal>[
       for (final principal in widget.roster)
@@ -241,13 +262,36 @@ class _GroupMembersViewState extends State<GroupMembersView> {
           Principal(id: id, name: id, description: 'Not in the roster'),
     ];
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return resolved;
+    if (q.isEmpty && roleFilter == null) return resolved;
     return [
       for (final principal in resolved)
-        if (principal.name.toLowerCase().contains(q) ||
-            (principal.description?.toLowerCase().contains(q) ?? false))
+        if ((roleFilter == null ||
+                widget.rolesById[principal.id] == roleFilter) &&
+            (principal.name.toLowerCase().contains(q) ||
+                (principal.description?.toLowerCase().contains(q) ?? false)))
           principal,
     ];
+  }
+
+  /// The role filter in effect: `null` when unset, or when the view's roles no
+  /// longer offer the chosen role — so a stale filter can't hide every row
+  /// behind a chip that is no longer shown.
+  AssignmentRole? get _activeRoleFilter {
+    for (final role in widget.roles) {
+      if (role.id == _roleFilter) return role;
+    }
+    return null;
+  }
+
+  void _setRoleFilter(String? roleId) {
+    setState(() {
+      _roleFilter = roleId;
+      // Bulk actions apply to the members shown, so drop any selected member
+      // the new filter hides.
+      if (roleId != null) {
+        _selected.removeWhere((id) => widget.rolesById[id] != roleId);
+      }
+    });
   }
 
   Future<void> _editMembers(BuildContext context, String groupName) async {
@@ -385,7 +429,8 @@ class _GroupMembersViewState extends State<GroupMembersView> {
           if (group == null) return const _DeletedGroup();
 
           final memberIds = ctrl.membersOf(widget.groupId);
-          final members = _members(memberIds);
+          final roleFilter = _activeRoleFilter;
+          final members = _members(memberIds, roleFilter?.id);
           final showSearch = widget.searchable && memberIds.isNotEmpty;
           // Locked members are never selectable, so they must not count toward
           // "everything visible is selected" — otherwise the tristate checkbox
@@ -407,6 +452,14 @@ class _GroupMembersViewState extends State<GroupMembersView> {
                 onEdit: () => _editMembers(context, group.name),
               ),
               const SizedBox(height: 12),
+              if (widget.roles.isNotEmpty && memberIds.isNotEmpty) ...[
+                RoleFilterBar(
+                  roles: widget.roles,
+                  selectedRoleId: roleFilter?.id,
+                  onChanged: _setRoleFilter,
+                ),
+                const SizedBox(height: 8),
+              ],
               if (memberIds.isNotEmpty)
                 BulkSelectionBar(
                   selectedCount: _selected.length,
@@ -446,6 +499,7 @@ class _GroupMembersViewState extends State<GroupMembersView> {
                   members: members,
                   hasMembers: memberIds.isNotEmpty,
                   query: _query.trim(),
+                  roleFilterLabel: roleFilter?.label,
                   selected: _selected,
                   lockedIds: widget.lockedMemberIds,
                   emptyState: widget.emptyState,
@@ -560,6 +614,7 @@ class _MemberList extends StatelessWidget {
     required this.members,
     required this.hasMembers,
     required this.query,
+    required this.roleFilterLabel,
     required this.selected,
     required this.lockedIds,
     required this.emptyState,
@@ -576,6 +631,9 @@ class _MemberList extends StatelessWidget {
   final List<Principal> members;
   final bool hasMembers;
   final String query;
+
+  /// Label of the role the list is narrowed to, or `null` when unfiltered.
+  final String? roleFilterLabel;
   final Set<String> selected;
   final Set<String> lockedIds;
   final Widget? emptyState;
@@ -593,9 +651,17 @@ class _MemberList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!hasMembers) return emptyState ?? const _EmptyMembers();
-    if (members.isEmpty) return _NoMatches(query: query);
+    if (members.isEmpty) {
+      return _NoMatches(query: query, roleLabel: roleFilterLabel);
+    }
 
     final hasFooter = footer != null;
+    // Every label a row's role slot can show, so each row reserves the width of
+    // the widest and the roles form one column.
+    final roleLabels = [
+      for (final role in roles) role.label,
+      if (roles.isNotEmpty && onRoleChanged != null) 'Set role',
+    ];
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: members.length + (hasFooter ? 1 : 0),
@@ -613,7 +679,7 @@ class _MemberList extends StatelessWidget {
           locked: lockedIds.contains(member.id),
           avatarHeaders: avatarHeaders,
           avatarImageProviderBuilder: avatarImageProviderBuilder,
-          hasRoles: roles.isNotEmpty,
+          roleLabels: roleLabels,
           roleLabel: resolveRoleLabel(roles, rolesById, member.id),
           roleMenu: onRoleChanged == null
               ? null
@@ -640,7 +706,7 @@ class _MemberRow extends StatelessWidget {
     required this.locked,
     required this.avatarHeaders,
     required this.avatarImageProviderBuilder,
-    required this.hasRoles,
+    required this.roleLabels,
     required this.roleLabel,
     required this.roleMenu,
     required this.onSelectionChanged,
@@ -653,8 +719,9 @@ class _MemberRow extends StatelessWidget {
   final Map<String, String>? avatarHeaders;
   final PrincipalAvatarImageProviderBuilder? avatarImageProviderBuilder;
 
-  /// Whether the view has roles at all; `false` renders no role affordance.
-  final bool hasRoles;
+  /// Every label the view's role slots can show; empty when the view has no
+  /// roles, which renders no role affordance.
+  final List<String> roleLabels;
 
   /// This member's resolved role label, or `null` for a member with no role.
   final String? roleLabel;
@@ -665,38 +732,99 @@ class _MemberRow extends StatelessWidget {
   final ValueChanged<bool> onSelectionChanged;
   final VoidCallback onRemove;
 
+  /// The `Owner ▾` role action, padded like [_RoleLabel] so editable and
+  /// read-only roles start at the same position.
+  static Widget _roleButton(
+    Widget label,
+    VoidCallback? onPressed,
+    EdgeInsetsGeometry padding,
+  ) => TextButton.icon(
+    onPressed: onPressed,
+    style: TextButton.styleFrom(padding: padding),
+    icon: const Icon(Icons.arrow_drop_down, size: 18),
+    iconAlignment: IconAlignment.end,
+    label: label,
+  );
+
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _buildTile(context, stacked: constraints.maxWidth < _stackRoleBelow),
+    );
+  }
+
+  /// Builds the row with its role trailing beside Remove, or — when [stacked],
+  /// on a tile too narrow for both beside the name — on a line under the name,
+  /// where every row's role still starts at the same edge.
+  Widget _buildTile(BuildContext context, {required bool stacked}) {
     final theme = Theme.of(context);
     final roleMenu = this.roleMenu;
-    final Widget? role = !hasRoles
-        ? null
-        // A locked row — or a display-only view — shows its role read-only.
-        : locked || roleMenu == null
-        ? _RoleLabel(roleLabel: roleLabel, name: principal.name)
+    final padding = stacked ? _stackedRolePadding : _rolePadding;
+    // A locked row — or a display-only view — shows its role read-only.
+    final Widget roleChild = locked || roleMenu == null
+        ? _RoleLabel(
+            roleLabel: roleLabel,
+            name: principal.name,
+            padding: padding,
+          )
         : roleMenu(
-            (onRolePressed) => TextButton.icon(
-              onPressed: onRolePressed,
-              icon: const Icon(Icons.arrow_drop_down, size: 18),
-              iconAlignment: IconAlignment.end,
-              label: Semantics(
+            (onRolePressed) => _roleButton(
+              Semantics(
                 label: roleLabel == null
                     ? '${principal.name}, no role, change role'
                     : '${principal.name}, $roleLabel, change role',
                 excludeSemantics: true,
-                child: Text(roleLabel ?? 'Set role'),
+                child: _roleText(roleLabel ?? 'Set role'),
               ),
+              onRolePressed,
+              padding,
+            ),
+          );
+    final Widget? role = roleLabels.isEmpty
+        ? null
+        : stacked
+        ? roleChild
+        : ConstrainedBox(
+            // Capped so one long label can't squeeze every row's title; a
+            // label past the cap ellipsizes, and its semantics keep it whole.
+            constraints: const BoxConstraints(maxWidth: _maxRoleWidth),
+            child: _SizedLike(
+              alignment: AlignmentDirectional.centerStart,
+              // An editable view's slot is as wide as its widest role button,
+              // so a locked row's read-only role starts where the buttons do.
+              sizers: [
+                for (final label in roleLabels)
+                  roleMenu == null
+                      ? _RoleLabel(
+                          roleLabel: label,
+                          name: principal.name,
+                          padding: padding,
+                        )
+                      : _roleButton(_roleText(label), null, padding),
+              ],
+              child: roleChild,
             ),
           );
     final Widget action = locked
         // A lock badge explains the missing Remove action so its absence
-        // doesn't read as a bug — matching GroupListView's locked rows.
-        ? Tooltip(
-            message: "Locked — can't be removed",
-            child: Icon(
-              Icons.lock_outline,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
+        // doesn't read as a bug — matching GroupListView's locked rows. It
+        // takes the Remove button's space so the column above stays aligned.
+        ? _SizedLike(
+            alignment: Alignment.center,
+            sizers: const [
+              IconButton(
+                icon: Icon(Icons.person_remove_outlined),
+                onPressed: null,
+              ),
+            ],
+            child: Tooltip(
+              message: "Locked — can't be removed",
+              child: Icon(
+                Icons.lock_outline,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           )
         : IconButton(
@@ -704,6 +832,10 @@ class _MemberRow extends StatelessWidget {
             tooltip: 'Remove ${principal.name}',
             onPressed: onRemove,
           );
+    final description = principal.description;
+    final Widget? descriptionText = description == null
+        ? null
+        : Text(description, maxLines: 1, overflow: TextOverflow.ellipsis);
     return ListTile(
       leading: _SelectableAvatar(
         principal: principal,
@@ -715,14 +847,14 @@ class _MemberRow extends StatelessWidget {
         onChanged: locked ? null : onSelectionChanged,
       ),
       title: Text(principal.name),
-      subtitle: principal.description == null
-          ? null
-          : Text(
-              principal.description!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-      trailing: role == null
+      subtitle: stacked && role != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [?descriptionText, role],
+            )
+          : descriptionText,
+      trailing: role == null || stacked
           ? action
           : Row(
               mainAxisSize: MainAxisSize.min,
@@ -732,13 +864,67 @@ class _MemberRow extends StatelessWidget {
   }
 }
 
+/// Below this tile width a row's role moves from beside Remove to under the
+/// name: beside it, the widest role slot and Remove would leave the name too
+/// little room — or none, which [ListTile] rejects.
+const _stackRoleBelow = 320.0;
+
+/// Role padding on a stacked row: no leading inset, so the role text lines up
+/// with the name above it.
+const _stackedRolePadding = EdgeInsetsDirectional.fromSTEB(0, 4, 8, 4);
+
+/// The widest a row's role slot grows. Fits labels like "Administrator" or
+/// "Can manage"; anything longer ellipsizes rather than narrowing the titles.
+const _maxRoleWidth = 140.0;
+
+/// A role label held to one line, ellipsized past [_maxRoleWidth].
+Text _roleText(String label, {TextStyle? style}) =>
+    Text(label, style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+/// Padding shared by a row's role button and its read-only role label, so the
+/// role text starts at the same position either way.
+const _rolePadding = EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8);
+
+/// Lays out [child] in the space the largest of [sizers] would take, so rows
+/// with different content keep their trailing columns aligned.
+///
+/// Only [child] is painted, hit-tested, and exposed to semantics; the sizers
+/// are laid out for their size alone.
+class _SizedLike extends StatelessWidget {
+  const _SizedLike({
+    required this.alignment,
+    required this.sizers,
+    required this.child,
+  });
+
+  final AlignmentGeometry alignment;
+  final List<Widget> sizers;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return IndexedStack(
+      alignment: alignment,
+      index: 0,
+      children: [child, ...sizers],
+    );
+  }
+}
+
 /// A member's role shown read-only — on a locked row, or when the view has no
 /// `onRoleChanged` — de-emphasized like the role on a chip.
 class _RoleLabel extends StatelessWidget {
-  const _RoleLabel({required this.roleLabel, required this.name});
+  const _RoleLabel({
+    required this.roleLabel,
+    required this.name,
+    required this.padding,
+  });
 
   final String? roleLabel;
   final String name;
+
+  /// Matches the role button's padding, so the two start at the same position.
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -749,8 +935,8 @@ class _RoleLabel extends StatelessWidget {
       label: '$name, $label',
       excludeSemantics: true,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(
+        padding: padding,
+        child: _roleText(
           label,
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -883,9 +1069,19 @@ class _EmptyMembers extends StatelessWidget {
 }
 
 class _NoMatches extends StatelessWidget {
-  const _NoMatches({required this.query});
+  const _NoMatches({required this.query, required this.roleLabel});
 
   final String query;
+
+  /// Label of the active role filter, or `null` when only the search narrows.
+  final String? roleLabel;
+
+  String get _message {
+    final roleLabel = this.roleLabel;
+    if (roleLabel == null) return 'No members match "$query"';
+    if (query.isEmpty) return 'No members with the role "$roleLabel"';
+    return 'No members with the role "$roleLabel" match "$query"';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -903,7 +1099,7 @@ class _NoMatches extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'No members match "$query"',
+              _message,
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
