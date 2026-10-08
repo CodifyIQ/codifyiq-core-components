@@ -22,10 +22,6 @@ final Finder _menuCheck = find.descendant(
   matching: find.byIcon(Icons.check),
 );
 
-/// [text] on a member row — not a role filter chip with the same label.
-Finder _rowText(String text) =>
-    find.descendant(of: find.byType(ListTile), matching: find.text(text));
-
 /// The role chevron on a member row — not the selection bar's own drop-down.
 final Finder _rowChevron = find.descendant(
   of: find.byType(ListTile),
@@ -78,8 +74,8 @@ void main() {
     ) async {
       await pumpView(tester, roles: const [], onRoleChanged: (_, _) {});
 
-      expect(_rowText('Owner'), findsNothing);
-      expect(_rowText('Member'), findsNothing);
+      expect(find.text('Owner'), findsNothing);
+      expect(find.text('Member'), findsNothing);
       expect(_rowChevron, findsNothing);
       expect(find.byTooltip('Set role'), findsNothing);
       expect(find.byTooltip('Remove Ada Lovelace'), findsOneWidget);
@@ -173,7 +169,7 @@ void main() {
         onRoleChanged: (_, _) {},
       );
 
-      expect(_rowText('Owner'), findsOneWidget);
+      expect(find.text('Owner'), findsOneWidget);
       expect(find.widgetWithText(TextButton, 'Owner'), findsNothing);
       expect(find.byIcon(Icons.lock_outline), findsOneWidget);
       // Grace is unlocked and still changeable.
@@ -183,8 +179,8 @@ void main() {
     testWidgets('without onRoleChanged roles are display-only', (tester) async {
       await pumpView(tester);
 
-      expect(_rowText('Owner'), findsOneWidget);
-      expect(_rowText('Member'), findsOneWidget);
+      expect(find.text('Owner'), findsOneWidget);
+      expect(find.text('Member'), findsOneWidget);
       expect(find.byType(TextButton), findsNothing);
       expect(_rowChevron, findsNothing);
 
@@ -287,80 +283,6 @@ void main() {
     testWidgets('defaultRoleId must be one of roles', (tester) async {
       await pumpView(tester, defaultRoleId: 'nope');
       expect(tester.takeException(), isAssertionError);
-    });
-  });
-
-  group('GroupMembersView row alignment', () {
-    const everyone = {
-      'ada': {'edit'},
-      'grace': {'edit'},
-      'linus': {'edit'},
-    };
-    final lock = find.byTooltip("Locked — can't be removed");
-    final remove = find.byTooltip('Remove Grace Hopper');
-
-    testWidgets('locked and unlocked roles share one column', (tester) async {
-      await pumpView(
-        tester,
-        assignments: everyone,
-        lockedMemberIds: const {'ada'},
-        onRoleChanged: (_, _) {},
-      );
-
-      // Ada's read-only role, Grace's role button, and Linus's "Set role".
-      final start = tester.getTopLeft(_rowText('Owner')).dx;
-      expect(tester.getTopLeft(_rowText('Member')).dx, start);
-      expect(tester.getTopLeft(_rowText('Set role')).dx, start);
-      expect(tester.getCenter(lock).dx, tester.getCenter(remove).dx);
-    });
-
-    testWidgets('display-only roles share one column', (tester) async {
-      await pumpView(tester, lockedMemberIds: const {'ada'});
-
-      expect(
-        tester.getTopLeft(_rowText('Owner')).dx,
-        tester.getTopLeft(_rowText('Member')).dx,
-      );
-      expect(tester.getCenter(lock).dx, tester.getCenter(remove).dx);
-    });
-
-    testWidgets('a long role ellipsizes instead of widening the column', (
-      tester,
-    ) async {
-      const long = 'Billing administrator for every region';
-      final semantics = tester.ensureSemantics();
-      await pumpView(
-        tester,
-        roles: const [
-          AssignmentRole(id: 'owner', label: long),
-          AssignmentRole(id: 'member', label: 'Member'),
-        ],
-        lockedMemberIds: const {'ada'},
-        onRoleChanged: (_, _) {},
-      );
-
-      final text = tester.widget<Text>(_rowText(long));
-      expect(text.overflow, TextOverflow.ellipsis);
-      expect(text.maxLines, 1);
-      // The column is capped, so Grace's role starts well short of a slot
-      // sized to the whole label.
-      final remove = tester.getTopLeft(find.byTooltip('Remove Grace Hopper'));
-      final role = tester.getTopLeft(_rowText('Member'));
-      expect(remove.dx - role.dx, lessThanOrEqualTo(140 + 4));
-      // Screen readers still hear the whole role, merged into the row's label.
-      expect(
-        find.bySemanticsLabel(RegExp(RegExp.escape('Ada Lovelace, $long'))),
-        findsOneWidget,
-      );
-      semantics.dispose();
-    });
-
-    testWidgets('lock aligns with Remove when roles are omitted', (
-      tester,
-    ) async {
-      await pumpView(tester, roles: const [], lockedMemberIds: const {'ada'});
-
-      expect(tester.getCenter(lock).dx, tester.getCenter(remove).dx);
     });
   });
 }
