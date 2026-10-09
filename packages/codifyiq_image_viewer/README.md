@@ -10,7 +10,7 @@ a local file, or any custom `ImageProvider`.
 
 ```yaml
 dependencies:
-  codifyiq_image_viewer: ^2.0.0
+  codifyiq_image_viewer: ^2.1.0
 ```
 
 ## Usage
@@ -25,6 +25,40 @@ ImageViewerWidget(
   ],
 );
 ```
+
+### Actions
+
+Share, Download and Delete appear when you supply their callbacks. Give items an `id` and
+`filename` so the callbacks know which record to act on, and add your own menu entries with
+`actions`:
+
+```dart
+ImageViewerWidget(
+  items: [
+    for (final photo in photos)
+      ImageViewerItem.network(photo.url, id: photo.id, filename: photo.filename),
+  ],
+  onDownload: (item, index) => download(item.id!, item.filename!),
+  onDelete: (item, index) => delete(item.id!),
+  actions: [
+    ImageViewerAction(
+      label: 'Set as featured',
+      icon: Icons.star_outline,
+      onSelected: (item, index) => setFeatured(item.id!),
+    ),
+  ],
+);
+```
+
+`items` can change while the viewer is open. After a delete, rebuild with the shorter list and
+the viewer moves to the neighbouring image. Removing from the list you passed in works just as
+well as passing a new one.
+
+* Give every item an `id` when the list can change. It is how the viewer recognises the image
+  being viewed after the change.
+* `items` must never be empty. When the last image is deleted, close the viewer
+  (`Navigator.of(context).pop()`) instead of rebuilding it with an empty list.
+* Zoom returns to fit-to-screen when images are removed, reordered or inserted ahead of others.
 
 > **Web note:** `ImageViewerItem.file` is not supported on Flutter web. Use `.network`,
 > `.asset`, or a custom `ImageProvider` on the web target.

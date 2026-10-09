@@ -26,20 +26,32 @@ class ImageViewerItem {
   /// Creates an [ImageViewerItem] from a raw [ImageProvider].
   ///
   /// [provider] is the image source.
+  /// [id] identifies the image in the consumer's own model.
+  /// [filename] is a suggested file name for share/download flows.
   /// [title] is an optional caption available to consuming code (forwarded to
   /// action callbacks; not rendered directly by [ImageViewerWidget]).
   /// [heroTag] enables a [Hero] transition into the viewer from a matching
   /// thumbnail.
-  const ImageViewerItem({required this.provider, this.title, this.heroTag});
+  const ImageViewerItem({
+    required this.provider,
+    this.id,
+    this.filename,
+    this.title,
+    this.heroTag,
+  });
 
   /// Loads an image from the app's asset bundle.
   factory ImageViewerItem.asset(
     String name, {
     String? package,
+    String? id,
+    String? filename,
     String? title,
     Object? heroTag,
   }) => ImageViewerItem(
     provider: AssetImage(name, package: package),
+    id: id,
+    filename: filename,
     title: title,
     heroTag: heroTag,
   );
@@ -48,10 +60,14 @@ class ImageViewerItem {
   factory ImageViewerItem.network(
     String url, {
     Map<String, String>? headers,
+    String? id,
+    String? filename,
     String? title,
     Object? heroTag,
   }) => ImageViewerItem(
     provider: NetworkImage(url, headers: headers),
+    id: id,
+    filename: filename,
     title: title,
     heroTag: heroTag,
   );
@@ -61,15 +77,35 @@ class ImageViewerItem {
   /// Not supported on Flutter web — calling this on a web target throws
   /// [UnsupportedError] when the image is loaded. Use [ImageViewerItem.network]
   /// or [ImageViewerItem.asset] on web instead.
-  factory ImageViewerItem.file(String path, {String? title, Object? heroTag}) =>
-      ImageViewerItem(
-        provider: file_loader.fileImageProvider(path),
-        title: title,
-        heroTag: heroTag,
-      );
+  factory ImageViewerItem.file(
+    String path, {
+    String? id,
+    String? filename,
+    String? title,
+    Object? heroTag,
+  }) => ImageViewerItem(
+    provider: file_loader.fileImageProvider(path),
+    id: id,
+    filename: filename,
+    title: title,
+    heroTag: heroTag,
+  );
 
   /// The underlying [ImageProvider] used to load this image.
   final ImageProvider provider;
+
+  /// Optional identifier for the image in the consumer's own model.
+  ///
+  /// Forwarded to action callbacks so consumers can act on the right record
+  /// without mapping the index back to their data. When the viewer's `items`
+  /// change while it is open, ids are also how it recognises the image the
+  /// user was looking at and stays on it.
+  final String? id;
+
+  /// Optional file name (e.g. `kitchen.jpg`) for the image.
+  ///
+  /// Forwarded to action callbacks so share/download flows can name the file.
+  final String? filename;
 
   /// Optional human-readable title for the image.
   ///
@@ -108,6 +144,31 @@ typedef ImageViewerActionCallback =
 typedef ImageViewerShareCallback =
     void Function(ImageViewerItem item, int index, Rect? sharePositionOrigin);
 
+/// A consumer-defined entry in the viewer's overflow menu.
+///
+/// Use this for actions beyond the built-in Share / Download / Delete, such
+/// as "Set as featured". Pass a list to [ImageViewerWidget.actions].
+class ImageViewerAction {
+  /// Creates an [ImageViewerAction].
+  ///
+  /// [label] is the menu item text, [icon] its leading icon, and
+  /// [onSelected] is called with the visible image when the item is chosen.
+  const ImageViewerAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+  });
+
+  /// Text shown for the menu item.
+  final String label;
+
+  /// Icon shown before [label].
+  final IconData icon;
+
+  /// Called with the visible item and its index when the action is chosen.
+  final ImageViewerActionCallback onSelected;
+}
+
 /// A modern, full-screen image viewer with swipe navigation, pinch zoom & pan,
 /// and an overflow menu for Share / Download / Delete actions.
 ///
@@ -138,8 +199,27 @@ typedef ImageViewerShareCallback =
 /// ## Actions
 ///
 /// Provide [onShare], [onDownload], and/or [onDelete] to enable the
-/// corresponding menu items. Menu items with `null` callbacks are hidden; if
-/// all three are `null` the overflow menu itself is hidden.
+/// corresponding menu items. Menu items with `null` callbacks are hidden.
+/// Add your own entries to the overflow menu with [actions]. The overflow
+/// menu itself is hidden when it would be empty.
+///
+/// ## Changing items while open
+///
+/// [items] may grow or shrink while the viewer is open — for example after a
+/// delete. The viewer stays on the image the user was viewing when it is
+/// still present (matched by [ImageViewerItem.id], or by image source when no
+/// id is set); otherwise it shows the image now at the same position, or the
+/// last image if that position no longer exists. Zoom returns to
+/// fit-to-screen whenever images are removed, reordered or inserted ahead of
+/// others.
+///
+/// Give every item an [ImageViewerItem.id] if the list can change. Without
+/// ids, an item built from a provider that has no value equality (a custom
+/// [ImageProvider], or a [MemoryImage] over freshly decoded bytes) looks like
+/// a different image on every rebuild.
+///
+/// [items] must never be empty: close the viewer instead of rebuilding it
+/// with an empty list when the last image is removed.
 ///
 /// ## Foundation
 ///
@@ -155,7 +235,7 @@ typedef ImageViewerShareCallback =
 ///         ImageViewerItem.network('https://example.com/a.jpg'),
 ///         ImageViewerItem.network('https://example.com/b.jpg'),
 ///       ],
-///       onShare: (item, index) => share(item),
+///       onShare: (item, index, sharePositionOrigin) => share(item),
 ///     ),
 ///   ),
 /// );
@@ -163,7 +243,8 @@ typedef ImageViewerShareCallback =
 class ImageViewerWidget extends StatefulWidget {
   /// Creates an [ImageViewerWidget].
   ///
-  /// [items] is the non-empty list of images to display.
+  /// [items] is the non-empty list of images to display. It may change
+  /// while the viewer is open, but must never become empty.
   /// [initialIndex] is the page shown when the viewer opens (clamped into
   /// the valid range).
   const ImageViewerWidget({
@@ -177,6 +258,7 @@ class ImageViewerWidget extends StatefulWidget {
     this.onShare,
     this.onDownload,
     this.onDelete,
+    this.actions = const [],
     this.onPageChanged,
     this.pageIndicatorBuilder,
     this.loadingBuilder,
@@ -224,6 +306,9 @@ class ImageViewerWidget extends StatefulWidget {
   /// Delete menu item is hidden.
   final ImageViewerActionCallback? onDelete;
 
+  /// Additional overflow-menu actions, shown in order above Delete.
+  final List<ImageViewerAction> actions;
+
   /// Called whenever the visible page changes, with the new zero-based index.
   final ValueChanged<int>? onPageChanged;
 
@@ -254,10 +339,18 @@ class ImageViewerWidget extends StatefulWidget {
 
 class _ImageViewerWidgetState extends State<ImageViewerWidget>
     with SingleTickerProviderStateMixin {
-  late final PageController _pageController;
-  late final List<PhotoViewScaleStateController> _scaleStateControllers;
+  late PageController _pageController;
+  late List<PhotoViewScaleStateController> _scaleStateControllers;
   late int _currentIndex;
   bool _isZoomed = false;
+
+  // The viewer's own copy of `widget.items`. Comparing against a copy is what
+  // lets it notice a consumer changing its list in place, where the old and
+  // new widgets share one (already changed) list.
+  late List<ImageViewerItem> _items;
+
+  // Bumped to rebuild the gallery from scratch when images change page.
+  int _galleryEpoch = 0;
 
   // Key for the Share icon button on mobile — captures its RenderBox before
   // the async gap in the consumer's share call so the iPad popover anchors
@@ -296,11 +389,13 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, widget.items.length - 1);
+    _items = List.of(widget.items);
+    _currentIndex = widget.initialIndex.clamp(0, _items.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
     _scaleStateControllers = List.generate(
-      widget.items.length,
+      _items.length,
       (_) => PhotoViewScaleStateController(),
+      growable: true,
     );
     _dragAnimController =
         AnimationController(
@@ -309,6 +404,70 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
           )
           ..addListener(_onDragAnimTick)
           ..addStatusListener(_onDragAnimStatusChanged);
+  }
+
+  // Two items show the same image when they are the same instance, share an
+  // id, or (with no ids to go on) load from an equal source.
+  static bool _isSameImage(ImageViewerItem a, ImageViewerItem b) {
+    if (identical(a, b)) return true;
+    if (a.id != null || b.id != null) return a.id == b.id;
+    return a.provider == b.provider;
+  }
+
+  @override
+  void didUpdateWidget(covariant ImageViewerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.items;
+    // Nothing to show: keep the last images until the consumer closes us.
+    if (next.isEmpty) return;
+
+    // Every image is still on its page (new ones may follow): keep the
+    // gallery, and with it the user's position and zoom.
+    var pagesKept = next.length >= _items.length;
+    for (var i = 0; pagesKept && i < _items.length; i++) {
+      pagesKept = _isSameImage(_items[i], next[i]);
+    }
+    if (pagesKept) {
+      while (_scaleStateControllers.length < next.length) {
+        _scaleStateControllers.add(PhotoViewScaleStateController());
+      }
+      _items = List.of(next);
+      return;
+    }
+
+    // Images moved between pages. Stay on the image the user was viewing if
+    // it survived the change; otherwise keep the position, clamped into the
+    // new range.
+    final viewed = _items[_currentIndex];
+    final found = next.indexWhere((item) => _isSameImage(item, viewed));
+    final index = found != -1
+        ? found
+        : math.min(_currentIndex, next.length - 1);
+    final indexChanged = index != _currentIndex;
+
+    // The gallery keeps zoom and pan per page, not per image, so rebuild it
+    // already positioned on the right page rather than let images inherit
+    // each other's state or flash past on the way to a jump.
+    final oldPageController = _pageController;
+    final oldScaleStateControllers = _scaleStateControllers;
+    _items = List.of(next);
+    _currentIndex = index;
+    _isZoomed = false;
+    _galleryEpoch++;
+    _pageController = PageController(initialPage: index);
+    _scaleStateControllers = List.generate(
+      next.length,
+      (_) => PhotoViewScaleStateController(),
+      growable: true,
+    );
+    // The old gallery holds its controllers until this frame has built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      oldPageController.dispose();
+      for (final c in oldScaleStateControllers) {
+        c.dispose();
+      }
+      if (mounted && indexChanged) widget.onPageChanged?.call(index);
+    });
   }
 
   @override
@@ -488,24 +647,19 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
     Navigator.of(context).maybePop();
   }
 
-  void _handleMenuSelected(_ImageViewerMenuAction action) {
-    final item = widget.items[_currentIndex];
-    switch (action) {
-      case _ImageViewerMenuAction.share:
-        // Capture the share button's RenderBox synchronously — before any
-        // async gap in the consumer's share call — so the iPad popover anchor
-        // rect is valid even after an await.
-        final renderBox =
-            _shareButtonKey.currentContext?.findRenderObject() as RenderBox?;
-        final rect = renderBox == null
-            ? null
-            : renderBox.localToGlobal(Offset.zero) & renderBox.size;
-        widget.onShare?.call(item, _currentIndex, rect);
-      case _ImageViewerMenuAction.download:
-        widget.onDownload?.call(item, _currentIndex);
-      case _ImageViewerMenuAction.delete:
-        widget.onDelete?.call(item, _currentIndex);
-    }
+  void _invoke(ImageViewerActionCallback callback) =>
+      callback(_items[_currentIndex], _currentIndex);
+
+  void _handleShare() {
+    // Capture the share button's RenderBox synchronously — before any
+    // async gap in the consumer's share call — so the iPad popover anchor
+    // rect is valid even after an await.
+    final renderBox =
+        _shareButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final rect = renderBox == null
+        ? null
+        : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    widget.onShare?.call(_items[_currentIndex], _currentIndex, rect);
   }
 
   String _defaultPageIndicator(int current, int total) =>
@@ -544,17 +698,20 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
   @override
   Widget build(BuildContext context) {
     final isWeb = kIsWeb;
-    final total = widget.items.length;
+    final total = _items.length;
     final indicator = (widget.pageIndicatorBuilder ?? _defaultPageIndicator)
         .call(_currentIndex, total);
 
     final screenHeight = MediaQuery.sizeOf(context).height;
+    final onDownload = widget.onDownload;
+    final onDelete = widget.onDelete;
     final dismissProgress = (_dragY / screenHeight).clamp(0.0, 1.0);
     final bgAlpha = 1.0 - dismissProgress * 0.7;
 
     final gallery = ScrollConfiguration(
       behavior: const _ViewerScrollBehavior(),
       child: PhotoViewGallery.builder(
+        key: ValueKey(_galleryEpoch),
         scrollPhysics: const BouncingScrollPhysics(),
         backgroundDecoration: BoxDecoration(color: widget.backgroundColor),
         pageController: _pageController,
@@ -566,7 +723,7 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
         loadingBuilder: (context, event) =>
             widget.loadingBuilder?.call(context) ?? _defaultLoading(context),
         builder: (context, index) {
-          final item = widget.items[index];
+          final item = _items[index];
           return PhotoViewGalleryPageOptions(
             imageProvider: item.provider,
             scaleStateController: _scaleStateControllers[index],
@@ -692,15 +849,11 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
               shareButtonKey: _shareButtonKey,
               overflowMenuKey: _overflowMenuKey,
               onClose: _handleClose,
-              onShare: widget.onShare == null
-                  ? null
-                  : () => _handleMenuSelected(_ImageViewerMenuAction.share),
-              onDownload: widget.onDownload == null
-                  ? null
-                  : () => _handleMenuSelected(_ImageViewerMenuAction.download),
-              onDelete: widget.onDelete == null
-                  ? null
-                  : () => _handleMenuSelected(_ImageViewerMenuAction.delete),
+              onShare: widget.onShare == null ? null : _handleShare,
+              onDownload: onDownload == null ? null : () => _invoke(onDownload),
+              onDelete: onDelete == null ? null : () => _invoke(onDelete),
+              actions: widget.actions,
+              onAction: (action) => _invoke(action.onSelected),
             ),
             body: body,
           ),
@@ -709,9 +862,6 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
     );
   }
 }
-
-/// Identifies an item in the viewer's overflow menu.
-enum _ImageViewerMenuAction { share, download, delete }
 
 /// Transparent app bar with a close button, page indicator, and action buttons.
 ///
@@ -729,11 +879,19 @@ class _ImageViewerAppBar extends StatelessWidget
     this.onShare,
     this.onDownload,
     this.onDelete,
+    this.actions = const [],
+    this.onAction,
   });
 
   final String title;
   final Color foregroundColor;
   final bool isWeb;
+
+  /// Consumer-defined overflow entries, shown above Delete.
+  final List<ImageViewerAction> actions;
+
+  /// Called when one of [actions] is chosen.
+  final ValueChanged<ImageViewerAction>? onAction;
 
   /// Key attached to the mobile Share [IconButton] so the parent state can
   /// read its [RenderBox] for the iPad share-sheet anchor rect.
@@ -753,21 +911,12 @@ class _ImageViewerAppBar extends StatelessWidget
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   // Overflow menu is shown when there are items to put in it.
-  // Web: Share + Delete. Mobile: Download + Delete.
-  bool get _hasOverflow => isWeb
-      ? (onShare != null || onDelete != null)
-      : (onDownload != null || onDelete != null);
-
-  void _handleSelected(_ImageViewerMenuAction action) {
-    switch (action) {
-      case _ImageViewerMenuAction.share:
-        onShare?.call();
-      case _ImageViewerMenuAction.download:
-        onDownload?.call();
-      case _ImageViewerMenuAction.delete:
-        onDelete?.call();
-    }
-  }
+  // Web: Share + custom + Delete. Mobile: Download + custom + Delete.
+  bool get _hasOverflow =>
+      actions.isNotEmpty ||
+      (isWeb
+          ? (onShare != null || onDelete != null)
+          : (onDownload != null || onDelete != null));
 
   @override
   Widget build(BuildContext context) {
@@ -808,17 +957,17 @@ class _ImageViewerAppBar extends StatelessWidget
             onPressed: onShare,
           ),
         if (_hasOverflow)
-          PopupMenuButton<_ImageViewerMenuAction>(
+          PopupMenuButton<VoidCallback>(
             key: overflowMenuKey,
             icon: Icon(Icons.more_vert, color: foregroundColor),
             tooltip: 'More actions',
-            onSelected: _handleSelected,
+            onSelected: (callback) => callback(),
             itemBuilder: (context) => [
               // Web: Share in overflow.
               if (isWeb && onShare != null)
-                const PopupMenuItem(
-                  value: _ImageViewerMenuAction.share,
-                  child: ListTile(
+                PopupMenuItem(
+                  value: onShare,
+                  child: const ListTile(
                     leading: Icon(Icons.share_outlined),
                     title: Text('Share'),
                     contentPadding: EdgeInsets.zero,
@@ -826,19 +975,29 @@ class _ImageViewerAppBar extends StatelessWidget
                 ),
               // Mobile: Download in overflow.
               if (!isWeb && onDownload != null)
-                const PopupMenuItem(
-                  value: _ImageViewerMenuAction.download,
-                  child: ListTile(
+                PopupMenuItem(
+                  value: onDownload,
+                  child: const ListTile(
                     leading: Icon(Icons.download_outlined),
                     title: Text('Download'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+              // Both platforms: consumer-defined actions.
+              for (final action in actions)
+                PopupMenuItem(
+                  value: () => onAction?.call(action),
+                  child: ListTile(
+                    leading: Icon(action.icon),
+                    title: Text(action.label),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               // Both platforms: Delete.
               if (onDelete != null)
-                const PopupMenuItem(
-                  value: _ImageViewerMenuAction.delete,
-                  child: ListTile(
+                PopupMenuItem(
+                  value: onDelete,
+                  child: const ListTile(
                     leading: Icon(Icons.delete_outline),
                     title: Text('Delete'),
                     contentPadding: EdgeInsets.zero,

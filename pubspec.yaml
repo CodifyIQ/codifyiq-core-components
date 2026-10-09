@@ -20,7 +20,7 @@ workspace:
   - example
 
 dev_dependencies:
-  melos: ^7.0.0
+  melos: ^8.9.0
 
 melos:
   repository: https://github.com/CodifyIQ/codifyiq-core-components
@@ -28,6 +28,9 @@ melos:
     analyze: flutter analyze
     format: dart format --set-exit-if-changed .
     test:
-      run: flutter test
+      exec:
+        command: flutter test --no-pub
+        concurrency: 1
+        failFast: true
       packageFilters:
         dirExists: test

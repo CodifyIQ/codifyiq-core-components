@@ -57,9 +57,16 @@ dart pub global activate melos   # once
 melos bootstrap                  # resolve all packages
 melos run analyze                # analyze every package
 melos run test                   # test every package with a test/ dir
-flutter run -t example/lib/main.dart -d chrome   # run the demo catalog
-flutter run -t example/lib/main.dart -d iPhone   # run it on an iOS simulator (safe-area insets)
+
+# Run the demo catalog. Run it from example/ — the workspace root is not an app.
+cd example
+flutter devices                  # list what you can run on
+flutter run -d <device>          # e.g. chrome, iPhone, emulator
 ```
+
+`-d` takes a device id or the start of its name, so `chrome` is the browser, `iPhone` an open
+iOS simulator and `emulator` a running Android emulator. In VS Code, the same launches are in
+the Run and Debug panel.
 
 The `example/` app demonstrates every widget in a single GoRouter-based catalog.
 
