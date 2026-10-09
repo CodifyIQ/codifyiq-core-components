@@ -1,3 +1,9 @@
+## 2.0.0
+
+* **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
+* **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
+* **Breaking:** requires `pdfrx` 2.5.0 or later, the first release built on `material_ui`, so the viewer's built-in controls follow your app's theme.
+
 ## 1.1.0
 
 * `PdfSource.uri` gains a `preferRangeAccess` flag (default `false`). When enabled, the viewer streams a network PDF via HTTP range requests instead of downloading it in full first, so the first page of a large document renders after a single small request. Servers that don't support range requests fall back to a full download automatically. No effect on web.

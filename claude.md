@@ -27,8 +27,8 @@ codifyiq-core-components/        # Git repo (Melos + native Dart pub workspace)
 
 ## Key Technologies
 
-- **Flutter** >= 3.41.0, **Dart** SDK ^3.10.0
-- **Material Design 3** for theming
+- **Flutter** >= 3.44.0, **Dart** SDK ^3.12.0
+- **Material Design 3** for theming, via the standalone [`material_ui`](https://pub.dev/packages/material_ui) package — import `package:material_ui/material_ui.dart`, never `package:flutter/material.dart`
 - **Monorepo**: [Melos](https://melos.invertase.dev) 7 over native Dart pub workspaces
 - Each package depends only on what it imports (e.g. `pdfrx`, `just_audio`, `photo_view`,
   `gpt_markdown`, `shimmer`, `adaptive_theme`); the workspace root carries no runtime deps.

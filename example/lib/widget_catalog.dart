@@ -1,5 +1,5 @@
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';

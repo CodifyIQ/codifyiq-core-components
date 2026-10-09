@@ -13,7 +13,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_user_avatar: ^1.2.0
+  codifyiq_user_avatar: ^2.0.0
 ```
 
 ## Usage

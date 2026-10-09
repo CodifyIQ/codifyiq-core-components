@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Options offered by [BulkSelectionBar]'s selection dropdown.
 enum BulkSelectAll { all, none }

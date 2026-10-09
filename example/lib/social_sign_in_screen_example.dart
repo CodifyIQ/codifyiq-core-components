@@ -1,6 +1,6 @@
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_social_sign_in/codifyiq_social_sign_in.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// An example page that demonstrates the usage of [SocialSignInScreen].
 ///

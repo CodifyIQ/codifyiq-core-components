@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_social_sign_in/codifyiq_social_sign_in.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget buildSignIn(Widget googleLogo, VoidCallback onGoogle) {
   return SocialSignInScreen(

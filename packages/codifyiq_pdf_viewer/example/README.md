@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_pdf_viewer/codifyiq_pdf_viewer.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget buildViewer() {
   return PdfViewerWidget(

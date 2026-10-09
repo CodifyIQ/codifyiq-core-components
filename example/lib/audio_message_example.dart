@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:codifyiq_audio_message/codifyiq_audio_message.dart';
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 

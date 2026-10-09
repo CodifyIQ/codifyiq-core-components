@@ -33,7 +33,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_pdf_viewer: ^1.1.0
+  codifyiq_pdf_viewer: ^2.0.0
 ```
 
 ## Usage

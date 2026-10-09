@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Blocks accidental dismissal of a modal that holds unsaved edits.
 ///

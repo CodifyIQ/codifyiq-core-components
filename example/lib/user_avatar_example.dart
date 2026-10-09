@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Example page demonstrating [UserAvatar] and [SelectableAvatarLeading].
 ///

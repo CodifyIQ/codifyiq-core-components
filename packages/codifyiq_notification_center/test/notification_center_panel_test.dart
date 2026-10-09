@@ -1,5 +1,5 @@
 import 'package:codifyiq_notification_center/codifyiq_notification_center.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -50,7 +50,11 @@ void main() {
       tester,
     ) async {
       final controller = NotificationCenterController()
-        ..start(id: 'a', title: 'Uploading report.pdf', description: 'Starting');
+        ..start(
+          id: 'a',
+          title: 'Uploading report.pdf',
+          description: 'Starting',
+        );
 
       await pumpPanel(tester, controller);
 
@@ -61,22 +65,21 @@ void main() {
     });
 
     group('single progress indicator per running row (#53)', () {
-      testWidgets(
-        'indeterminate task shows only the spinner — never the bar',
-        (tester) async {
-          // progress == null (unknown duration) is signalled solely by the
-          // leading spinner. The linear bar carries a value it doesn't have,
-          // so it must not appear.
-          final controller = NotificationCenterController()
-            ..start(id: 'a', title: 'Working');
+      testWidgets('indeterminate task shows only the spinner — never the bar', (
+        tester,
+      ) async {
+        // progress == null (unknown duration) is signalled solely by the
+        // leading spinner. The linear bar carries a value it doesn't have,
+        // so it must not appear.
+        final controller = NotificationCenterController()
+          ..start(id: 'a', title: 'Working');
 
-          await pumpPanel(tester, controller);
+        await pumpPanel(tester, controller);
 
-          expect(find.byType(CircularProgressIndicator), findsOneWidget);
-          expect(find.byType(LinearProgressIndicator), findsNothing);
-          expect(find.byIcon(Icons.sync), findsNothing);
-        },
-      );
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(find.byIcon(Icons.sync), findsNothing);
+      });
 
       testWidgets(
         'determinate task shows only the bar — no leading glyph, never the spinner',
@@ -124,42 +127,40 @@ void main() {
         },
       );
 
-      testWidgets(
-        'clearProgress reverts a determinate row to the spinner',
-        (tester) async {
-          // The mirror of the swap above, and the documented "verifying…"
-          // path: a determinate bar returns to an indeterminate spinner.
-          final controller = NotificationCenterController()
-            ..start(id: 'a', title: 'Working', progress: 0.5);
-          await pumpPanel(tester, controller);
+      testWidgets('clearProgress reverts a determinate row to the spinner', (
+        tester,
+      ) async {
+        // The mirror of the swap above, and the documented "verifying…"
+        // path: a determinate bar returns to an indeterminate spinner.
+        final controller = NotificationCenterController()
+          ..start(id: 'a', title: 'Working', progress: 0.5);
+        await pumpPanel(tester, controller);
 
-          expect(find.byType(LinearProgressIndicator), findsOneWidget);
-          expect(find.byIcon(Icons.sync), findsNothing);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.byIcon(Icons.sync), findsNothing);
 
-          controller.updateProgress('a', clearProgress: true);
-          await tester.pump();
+        controller.updateProgress('a', clearProgress: true);
+        await tester.pump();
 
-          expect(find.byType(CircularProgressIndicator), findsOneWidget);
-          expect(find.byType(LinearProgressIndicator), findsNothing);
-          expect(find.byIcon(Icons.sync), findsNothing);
-        },
-      );
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(find.byIcon(Icons.sync), findsNothing);
+      });
 
-      testWidgets(
-        'mixed running rows each keep exactly one indicator',
-        (tester) async {
-          final controller = NotificationCenterController()
-            ..start(id: 'a', title: 'Indeterminate')
-            ..start(id: 'b', title: 'Determinate', progress: 0.3);
+      testWidgets('mixed running rows each keep exactly one indicator', (
+        tester,
+      ) async {
+        final controller = NotificationCenterController()
+          ..start(id: 'a', title: 'Indeterminate')
+          ..start(id: 'b', title: 'Determinate', progress: 0.3);
 
-          await pumpPanel(tester, controller);
+        await pumpPanel(tester, controller);
 
-          // One spinner (the null row), one bar (the 0.3 row) — not two of each.
-          expect(find.byType(CircularProgressIndicator), findsOneWidget);
-          expect(find.byType(LinearProgressIndicator), findsOneWidget);
-          expect(find.byIcon(Icons.sync), findsNothing);
-        },
-      );
+        // One spinner (the null row), one bar (the 0.3 row) — not two of each.
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.byIcon(Icons.sync), findsNothing);
+      });
     });
 
     testWidgets('succeeded item shows the success glyph and no progress UI', (

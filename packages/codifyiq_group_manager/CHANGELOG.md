@@ -1,3 +1,9 @@
+## 2.0.0
+
+* **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
+* **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
+* **Breaking:** requires `codifyiq_user_avatar` 2.0.0 or later.
+
 ## 1.4.1
 
 * `GroupMembersView` can narrow its list to one role. With `roles` passed, a row of chips under the search field — "All members", then each role — shows only the members with the chosen role, combined with the search, so "who owns this group?" is one tap. The chosen chip shows the current filter; tap "All members" or the chosen chip again to clear it. Select-all selects only the members shown, and switching the filter deselects any member it hides, so bulk actions apply to what's on screen. A member whose role changes out of the filter — from the view or from your app updating `rolesById` — leaves the list and the selection, and when nothing matches the empty state names the role. With `roles` omitted, the view is unchanged.

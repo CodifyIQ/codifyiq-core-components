@@ -1,3 +1,9 @@
+## 2.0.0
+
+* **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
+* **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
+* The Markdown content keeps following your app's light and dark themes; no extra setup is needed for it.
+
 ## 1.1.0
 
 * Shortened the acceptance button labels so they no longer wrap to two lines on

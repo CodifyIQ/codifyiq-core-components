@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_audio_message/codifyiq_audio_message.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // Simplest form — the widget manages its own controller from the URL.
 Widget buildPlayer() {

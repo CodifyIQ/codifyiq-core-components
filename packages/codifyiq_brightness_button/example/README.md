@@ -4,7 +4,7 @@ The app must be wrapped in `AdaptiveTheme` for the toggle to take effect.
 
 ```dart
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 AppBar buildAppBar() {
   return AppBar(

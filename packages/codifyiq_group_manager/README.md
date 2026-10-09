@@ -20,7 +20,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_group_manager: ^1.4.0
+  codifyiq_group_manager: ^2.0.0
 ```
 
 ## Concepts

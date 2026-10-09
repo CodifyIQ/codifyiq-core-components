@@ -1,7 +1,7 @@
 import 'package:codifyiq_brightness_button/codifyiq_brightness_button.dart';
 import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Demo for [GroupManagerController], [GroupManagerView], [GroupMembersView],
 /// [GroupAssignmentField], [GroupBulkAssignmentDialog], [BulkSelectionBar],

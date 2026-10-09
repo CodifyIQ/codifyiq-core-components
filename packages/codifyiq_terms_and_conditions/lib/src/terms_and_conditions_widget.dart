@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// A widget for displaying and accepting terms and conditions with a scrollable
@@ -259,9 +259,16 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
           // which is what forces `gpt_markdown` to re-resolve the colour it
           // bakes into heading spans. Keying on the live colour instead would
           // re-parse the document on every frame of the transition.
-          child: GptMarkdown(
-            key: ValueKey(_themeEpoch),
-            widget.termsContent ?? _defaultTerms,
+          // `gpt_markdown` still reads its colours from the Flutter SDK's
+          // Material library, which can't see a `material_ui` theme. The
+          // bridge republishes the ambient theme for it; drop it once
+          // `gpt_markdown` ships on `material_ui`.
+          // ignore: deprecated_member_use
+          child: MaterialUiCompatibilityBridge(
+            child: GptMarkdown(
+              key: ValueKey(_themeEpoch),
+              widget.termsContent ?? _defaultTerms,
+            ),
           ),
         ),
       ),

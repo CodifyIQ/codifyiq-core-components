@@ -18,7 +18,7 @@ across the widget. Colors are derived from the app's theme by default (`onSurfac
 
 ```yaml
 dependencies:
-  codifyiq_ai_progress_indicator: ^1.0.0
+  codifyiq_ai_progress_indicator: ^2.0.0
 ```
 
 ## Usage

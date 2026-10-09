@@ -2,7 +2,7 @@ import 'dart:ui' show CheckedState;
 
 import 'package:codifyiq_user_avatar/codifyiq_user_avatar.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

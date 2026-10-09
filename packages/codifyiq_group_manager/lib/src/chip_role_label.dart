@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The label of a [GroupChip] or [PrincipalChip] that carries a role:
 /// `name · role`, with the role de-emphasized in `onSurfaceVariant`.

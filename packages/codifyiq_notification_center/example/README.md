@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_notification_center/codifyiq_notification_center.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 final controller = NotificationCenterController();
 
