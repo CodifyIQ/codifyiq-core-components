@@ -10,7 +10,7 @@ a local file, or any custom `ImageProvider`.
 
 ```yaml
 dependencies:
-  codifyiq_image_viewer: ^1.0.0
+  codifyiq_image_viewer: ^2.0.0
 ```
 
 ## Usage

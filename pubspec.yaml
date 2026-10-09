@@ -3,7 +3,7 @@ description: Dev-only workspace root for the CodifyIQ component packages. Not pu
 publish_to: none
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.12.0
 
 # Native Dart pub workspace (Dart 3.6+). Each member sets `resolution: workspace`.
 workspace:

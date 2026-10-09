@@ -23,7 +23,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_terms_and_conditions: ^1.1.0
+  codifyiq_terms_and_conditions: ^2.0.0
 ```
 
 ## Usage

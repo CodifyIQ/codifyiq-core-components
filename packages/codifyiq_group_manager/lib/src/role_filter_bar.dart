@@ -1,5 +1,5 @@
 import 'package:codifyiq_group_manager/src/assignment_role.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A single-select row of chips that narrows a list to one of [roles].
 ///

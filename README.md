@@ -35,6 +35,19 @@ but publish independently. **Depend on a widget and you get its dependencies; no
 > ¹ `ImageViewerItem.file` is unsupported on Flutter web; use `.network`, `.asset`, or a custom `ImageProvider`.
 > ² PDFs loaded via `PdfSource.uri` require CORS headers; `PdfSource.file` is unsupported on web.
 
+## Requirements
+
+All packages (2.0.0 and later) are built on [`material_ui`](https://pub.dev/packages/material_ui),
+Flutter's standalone Material library, and need **Flutter 3.44 / Dart 3.12** or later. Your app
+must use `material_ui` as well; an app still importing `package:flutter/material.dart` won't pass
+its theme to these widgets. To migrate an app, run:
+
+```bash
+dart fix --apply --code=migrate_design_widgets
+```
+
+The 1.x releases remain available for apps on the Material library bundled with the Flutter SDK.
+
 ## Development
 
 This is a [Melos](https://melos.invertase.dev) workspace using native Dart pub workspaces.

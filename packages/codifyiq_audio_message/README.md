@@ -11,7 +11,7 @@ or unsupported platforms.
 
 ```yaml
 dependencies:
-  codifyiq_audio_message: ^1.0.0
+  codifyiq_audio_message: ^2.0.0
 ```
 
 ## Usage

@@ -1,6 +1,6 @@
 name: codifyiq_terms_and_conditions
 description: A scrollable terms-and-conditions widget with Markdown rendering and a scroll-gated acceptance button.
-version: 1.1.0
+version: 2.0.0
 homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_terms_and_conditions
 repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_terms_and_conditions
 issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
@@ -13,12 +13,13 @@ topics:
 resolution: workspace
 
 environment:
-  sdk: ^3.10.0
-  flutter: ">=3.41.0"
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  material_ui: ^1.0.0
   gpt_markdown: ^1.1.5
 
 dev_dependencies:

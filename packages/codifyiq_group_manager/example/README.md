@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_group_manager/codifyiq_group_manager.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 final controller = GroupManagerController(
   groups: const [

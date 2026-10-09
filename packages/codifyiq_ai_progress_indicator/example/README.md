@@ -2,7 +2,7 @@
 
 ```dart
 import 'package:codifyiq_ai_progress_indicator/codifyiq_ai_progress_indicator.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class GeneratingView extends StatelessWidget {
   const GeneratingView({super.key});

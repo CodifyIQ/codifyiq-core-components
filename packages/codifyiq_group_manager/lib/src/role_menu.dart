@@ -1,5 +1,5 @@
 import 'package:codifyiq_group_manager/src/assignment_role.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Anchors a menu of [roles] to the chip that [builder] returns.
 ///

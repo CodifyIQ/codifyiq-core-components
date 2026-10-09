@@ -9,7 +9,7 @@ between Light, Dark, and System brightness modes. Drop it into an `AppBar` or se
 
 ```yaml
 dependencies:
-  codifyiq_brightness_button: ^1.0.0
+  codifyiq_brightness_button: ^2.0.0
 ```
 
 ## Usage

@@ -24,7 +24,7 @@ Select the image for a quick walkthrough:
 
 ```yaml
 dependencies:
-  codifyiq_notification_center: ^1.0.0
+  codifyiq_notification_center: ^2.0.0
 ```
 
 ## Usage

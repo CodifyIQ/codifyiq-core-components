@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'magic_link_code_field.dart';
 import 'social_sign_in_screen.dart' show SocialSignInError, buildErrorBanner;
