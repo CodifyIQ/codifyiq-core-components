@@ -25,6 +25,8 @@ Select the image for a quick walkthrough:
 * **Download progress** — a linear progress bar (determinate when the server sends a content
   length) is shown across the top of the viewer while a network PDF loads; opt out with
   `showDownloadProgress: false` or hook `onDownloadProgress` to drive your own UI.
+* **A full-screen screen** — `PdfViewerScreen` wraps the viewer in a route with a close
+  button, a title, a search toggle, and optional Share, Download and custom actions.
 * **Open to a page** — `initialPageNumber` opens the document to a specific page (deep links,
   resuming a reader), and `networkTimeout` bounds a stalled network load so it surfaces the
   error UI instead of spinning forever.
@@ -54,6 +56,44 @@ Load from a local file or in-memory bytes with the other `PdfSource` variants:
 PdfViewerWidget(source: PdfSource.file('/path/to/file.pdf'));
 PdfViewerWidget(source: PdfSource.bytes(myUint8List));
 ```
+
+## Full screen
+
+Push `PdfViewerScreen` as its own route to open a document full screen, for example from a
+tapped chat attachment. It takes the same `PdfSource` as `PdfViewerWidget`:
+
+```dart
+Navigator.of(context).push(
+  MaterialPageRoute(
+    fullscreenDialog: true,
+    builder: (_) => PdfViewerScreen(
+      source: PdfSource.uri(Uri.parse('https://example.com/report.pdf')),
+      title: 'report.pdf',
+      onShare: (sharePositionOrigin) => shareReport(sharePositionOrigin),
+      onDownload: downloadReport,
+      actions: [
+        PdfViewerAction(
+          label: 'Open in browser',
+          icon: Icons.open_in_new,
+          onSelected: openReportInBrowser,
+        ),
+      ],
+    ),
+  ),
+);
+```
+
+Share and Download appear only when you supply their callbacks, and what they do is up to
+you, so the package carries no sharing or file-saving plugins. As in `codifyiq_image_viewer`,
+the platform's usual action gets an app bar button (Share on mobile and desktop, Download on
+web) and the other goes in the overflow menu, followed by your own `actions`. `onShare`
+receives the Share button's position; pass it as `sharePositionOrigin` to `share_plus` so the
+iPad share sheet anchors to the button. Search is offered by default; turn it off with `enableSearch: false`. The system back gesture
+closes an open search bar before it closes the screen.
+
+The close button pops the route, and is hidden when there is no route to go back to. If the
+screen is not a pushed route (a deep-linked page, for example), pass `onClose` to show the
+button and decide where it goes.
 
 ## Authentication
 

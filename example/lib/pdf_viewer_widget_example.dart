@@ -4,7 +4,9 @@ import 'package:material_ui/material_ui.dart';
 
 /// An example page that demonstrates the [PdfViewerWidget].
 ///
-/// Shows a single PDF loaded from a network URL with search enabled. The
+/// Shows a single PDF loaded from a network URL with search enabled, and an
+/// "Open full screen" button that opens the same document in a
+/// [PdfViewerScreen]. The
 /// minimal snippet below illustrates the smallest possible usage; the full
 /// page wraps it with an [AppBar] for the demo catalog.
 ///
@@ -33,6 +35,36 @@ class _PdfViewerWidgetExampleState extends State<PdfViewerWidgetExample> {
     'https://raw.githubusercontent.com/py-pdf/sample-files/main/009-pdflatex-geotopo/GeoTopo.pdf',
   );
 
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // Pushes the full-screen viewer as its own route. Share and Download are
+  // callbacks, so a real app would hand them to share_plus or a file saver.
+  void _openFullScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (screenContext) => PdfViewerScreen(
+          source: PdfSource.uri(_sampleUri, preferRangeAccess: true),
+          title: 'GeoTopo.pdf',
+          onShare: (sharePositionOrigin) =>
+              _showSnack(screenContext, 'Share: GeoTopo.pdf'),
+          onDownload: () => _showSnack(screenContext, 'Download: GeoTopo.pdf'),
+          actions: [
+            PdfViewerAction(
+              label: 'Copy link',
+              icon: Icons.link,
+              onSelected: () => _showSnack(screenContext, 'Link copied'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,41 +80,57 @@ class _PdfViewerWidgetExampleState extends State<PdfViewerWidgetExample> {
           const BrightnessButton(),
         ],
       ),
-      // preferRangeAccess is left false here so pdfrx downloads the whole file
-      // before first render, which showcases the determinate download progress
-      // bar. Set it to true to instead stream the document via HTTP range
-      // requests — the first page then renders after a single small request, so
-      // the progress bar barely appears. See the package README for the
-      // trade-off.
-      //
-      // useProgressiveLoading (on by default) hands back pages as the document
-      // parses; combined with preferRangeAccess: true it yields true on-demand,
-      // page-by-page loading of a large remote PDF.
-      body: PdfViewerWidget(
-        source: PdfSource.uri(
-          _sampleUri,
-          preferRangeAccess: false,
-          useProgressiveLoading: true,
-        ),
-        enableSearch: _enableSearch,
-        // Open to a specific page (1 = default; e.g. from a deep link) and fail
-        // a stalled network load after 30s instead of spinning forever.
-        initialPageNumber: 1,
-        networkTimeout: const Duration(seconds: 30),
-        onDocumentLoaded: (pageCount) => debugPrint('Loaded $pageCount pages'),
-        onPageChanged: (page) => debugPrint('On page $page'),
-        // The built-in progress bar across the top of the viewer is shown by
-        // default; this callback additionally reports raw byte counts.
-        onDownloadProgress: (received, total) =>
-            debugPrint('Downloaded $received / ${total ?? '?'} bytes'),
-        errorBuilder: (context, error) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Could not load PDF:\n$error',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: FilledButton.tonalIcon(
+              icon: const Icon(Icons.open_in_full),
+              label: const Text('Open full screen'),
+              onPressed: _openFullScreen,
             ),
+          ),
+          Expanded(child: _buildInlineViewer(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineViewer(BuildContext context) {
+    // preferRangeAccess is left false here so pdfrx downloads the whole file
+    // before first render, which showcases the determinate download progress
+    // bar. Set it to true to instead stream the document via HTTP range
+    // requests — the first page then renders after a single small request, so
+    // the progress bar barely appears. See the package README for the
+    // trade-off.
+    //
+    // useProgressiveLoading (on by default) hands back pages as the document
+    // parses; combined with preferRangeAccess: true it yields true on-demand,
+    // page-by-page loading of a large remote PDF.
+    return PdfViewerWidget(
+      source: PdfSource.uri(
+        _sampleUri,
+        preferRangeAccess: false,
+        useProgressiveLoading: true,
+      ),
+      enableSearch: _enableSearch,
+      // Open to a specific page (1 = default; e.g. from a deep link) and fail
+      // a stalled network load after 30s instead of spinning forever.
+      initialPageNumber: 1,
+      networkTimeout: const Duration(seconds: 30),
+      onDocumentLoaded: (pageCount) => debugPrint('Loaded $pageCount pages'),
+      onPageChanged: (page) => debugPrint('On page $page'),
+      // The built-in progress bar across the top of the viewer is shown by
+      // default; this callback additionally reports raw byte counts.
+      onDownloadProgress: (received, total) =>
+          debugPrint('Downloaded $received / ${total ?? '?'} bytes'),
+      errorBuilder: (context, error) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Could not load PDF:\n$error',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
       ),

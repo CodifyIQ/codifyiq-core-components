@@ -3,6 +3,9 @@
 * **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
 * **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
 * **Breaking:** requires `pdfrx` 2.5.0 or later, the first release built on `material_ui`, so the viewer's built-in controls follow your app's theme.
+* `PdfViewerScreen` — a full-screen PDF viewer to push as its own route, for example from a tapped chat attachment. It has a close button, an optional title (such as the file name), and a search button that shows the search bar ready to type in. The system back gesture closes the search bar before the screen. The close button is hidden when there is nowhere to go back to; pass `onClose` when the screen isn't a pushed route, such as a deep-linked page.
+* Supply `onShare` and `onDownload` to enable Share and Download, and add your own overflow menu entries with `PdfViewerAction`. Share is an app bar button on mobile and desktop and Download on web, with the other in the overflow menu, matching `codifyiq_image_viewer`. Share hands back the button's position for the iPad share sheet.
+* `PdfViewerWidget` gains `autofocusSearch` (default `false`) to focus the search field as soon as the search bar appears, or as soon as the document is ready if the bar appears while it is still loading.
 
 ## 1.1.0
 
