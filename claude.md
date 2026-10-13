@@ -29,7 +29,7 @@ codifyiq-core-components/        # Git repo (Melos + native Dart pub workspace)
 
 - **Flutter** >= 3.44.0, **Dart** SDK ^3.12.0
 - **Material Design 3** for theming, via the standalone [`material_ui`](https://pub.dev/packages/material_ui) package — import `package:material_ui/material_ui.dart`, never `package:flutter/material.dart`
-- **Monorepo**: [Melos](https://melos.invertase.dev) 7 over native Dart pub workspaces
+- **Monorepo**: [Melos](https://melos.invertase.dev) 8 over native Dart pub workspaces
 - Each package depends only on what it imports (e.g. `pdfrx`, `just_audio`, `photo_view`,
   `gpt_markdown`, `shimmer`, `adaptive_theme`); the workspace root carries no runtime deps.
 
@@ -46,12 +46,18 @@ melos bootstrap
 melos run analyze
 melos run test
 
-# Run the example catalog
-flutter run -t example/lib/main.dart -d chrome
+# Run the example catalog. Run it from example/ — the workspace root is not an app, so
+# launching from the root finds no iOS project and builds a web app with no icons or plugins.
+cd example
+flutter run -d chrome
 
 # Run the example catalog on an iOS simulator (surfaces safe-area / notch issues Chrome hides)
 open -a Simulator
-flutter run -t example/lib/main.dart -d iPhone
+flutter run -d iPhone
+
+# Run the example catalog on a running Android emulator
+flutter emulators --launch <emulator id>
+flutter run -d emulator
 ```
 
 ## Coding Conventions

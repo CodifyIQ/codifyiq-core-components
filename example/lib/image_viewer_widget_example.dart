@@ -89,6 +89,14 @@ class ImageViewerWidgetExample extends StatelessWidget {
               _showSnack(dialogContext, 'Download: ${item.title}'),
           onDelete: (item, index) =>
               _showSnack(dialogContext, 'Delete: ${item.title}'),
+          actions: [
+            ImageViewerAction(
+              label: 'Set as featured',
+              icon: Icons.star_outline,
+              onSelected: (item, index) =>
+                  _showSnack(dialogContext, 'Featured: ${item.filename}'),
+            ),
+          ],
         ),
       ),
     );
@@ -113,8 +121,13 @@ class _DemoImage {
   String get thumbUrl => 'https://picsum.photos/id/$id/400/300';
   String get heroTag => 'image-viewer-demo-$id';
 
-  ImageViewerItem toItem() =>
-      ImageViewerItem.network(fullUrl, title: title, heroTag: heroTag);
+  ImageViewerItem toItem() => ImageViewerItem.network(
+    fullUrl,
+    id: '$id',
+    filename: 'picsum-$id.jpg',
+    title: title,
+    heroTag: heroTag,
+  );
 }
 
 /// Thumbnail card that animates into the full-screen viewer via [Hero].
