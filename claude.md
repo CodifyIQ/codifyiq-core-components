@@ -3,7 +3,7 @@
 A Melos-managed monorepo of small, focused Flutter UI packages. Each widget is published to
 pub.dev as its own package under the `codifyiq.com` verified publisher (MIT license), so a
 consumer only pulls the dependencies of the widgets it actually imports. Heavy native deps
-(`pdfrx`, `just_audio`) are quarantined in their own packages.
+(`pdfrx`, `just_audio`, `video_player`) are quarantined in their own packages.
 
 ## Project Structure
 
@@ -30,7 +30,7 @@ codifyiq-core-components/        # Git repo (Melos + native Dart pub workspace)
 - **Flutter** >= 3.44.0, **Dart** SDK ^3.12.0
 - **Material Design 3** for theming, via the standalone [`material_ui`](https://pub.dev/packages/material_ui) package — import `package:material_ui/material_ui.dart`, never `package:flutter/material.dart`
 - **Monorepo**: [Melos](https://melos.invertase.dev) 8 over native Dart pub workspaces
-- Each package depends only on what it imports (e.g. `pdfrx`, `just_audio`, `photo_view`,
+- Each package depends only on what it imports (e.g. `pdfrx`, `just_audio`, `video_player`, `photo_view`,
   `gpt_markdown`, `shimmer`, `adaptive_theme`); the workspace root carries no runtime deps.
 
 ## Commands
@@ -126,3 +126,4 @@ class MyWidget extends StatelessWidget {
 | `codifyiq_social_sign_in` | Presentational social sign-in screen | — |
 | `codifyiq_terms_and_conditions` | Scrollable T&C with acceptance checkbox | `gpt_markdown` |
 | `codifyiq_user_avatar` | Circular avatar with photo/initials/icon fallbacks | — |
+| `codifyiq_video_viewer` | Video player, full-screen viewer, and thumbnail tile | `video_player`, `wakelock_plus` |

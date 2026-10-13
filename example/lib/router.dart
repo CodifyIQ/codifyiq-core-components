@@ -10,6 +10,7 @@ import 'pdf_viewer_widget_example.dart';
 import 'image_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
+import 'video_viewer_example.dart';
 import 'widget_catalog.dart';
 
 /// Path for the home page.
@@ -65,6 +66,12 @@ final GoRouter router = GoRouter(
       path: "/image-viewer",
       builder: (BuildContext context, GoRouterState state) {
         return ImageViewerWidgetExample();
+      },
+    ),
+    GoRoute(
+      path: "/video-viewer",
+      builder: (BuildContext context, GoRouterState state) {
+        return const VideoViewerExample();
       },
     ),
     GoRoute(

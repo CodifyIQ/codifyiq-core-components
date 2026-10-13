@@ -17,6 +17,7 @@ workspace:
   - packages/codifyiq_social_sign_in
   - packages/codifyiq_terms_and_conditions
   - packages/codifyiq_user_avatar
+  - packages/codifyiq_video_viewer
   - example
 
 dev_dependencies:

@@ -25,6 +25,7 @@ dependencies:
   codifyiq_social_sign_in: ^2.0.0
   codifyiq_terms_and_conditions: ^2.0.0
   codifyiq_user_avatar: ^2.0.0
+  codifyiq_video_viewer: ^1.0.0
 
   # Example-only dependencies (not shipped by any published package).
   adaptive_theme: ^3.8.0

@@ -1,0 +1,34 @@
+name: codifyiq_video_viewer
+description: A video player with play, scrub and mute controls, a full-screen viewer route, and a thumbnail tile, powered by video_player.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_video_viewer
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_video_viewer
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - video
+
+resolution: workspace
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.0.0
+  video_player: ^2.14.0
+  wakelock_plus: ^1.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  video_player_platform_interface: ^6.9.0
+  wakelock_plus_platform_interface: ^1.7.0
+
+flutter:
+  uses-material-design: true

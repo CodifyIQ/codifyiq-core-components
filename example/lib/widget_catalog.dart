@@ -10,6 +10,7 @@ import 'pdf_viewer_widget_example.dart';
 import 'social_sign_in_screen_example.dart';
 import 'terms_and_conditions_widget_example.dart';
 import 'user_avatar_example.dart';
+import 'video_viewer_example.dart';
 
 class WidgetCatalog extends StatelessWidget {
   const WidgetCatalog({super.key});
@@ -27,6 +28,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Full-screen image viewer with swipe, pinch-zoom, and actions',
       'route': ImageViewerWidgetExample(),
+    },
+    {
+      'name': 'Video Viewer',
+      'description':
+          'Video thumbnails, an inline player, and a full-screen viewer',
+      'route': VideoViewerExample(),
     },
     {
       'name': 'User Avatar',
