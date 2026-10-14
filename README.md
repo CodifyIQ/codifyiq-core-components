@@ -24,6 +24,7 @@ but publish independently. **Depend on a widget and you get its dependencies; no
 | [codifyiq_ai_progress_indicator](packages/codifyiq_ai_progress_indicator) | [![pub](https://img.shields.io/pub/v/codifyiq_ai_progress_indicator.svg)](https://pub.dev/packages/codifyiq_ai_progress_indicator) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_audio_message](packages/codifyiq_audio_message) | [![pub](https://img.shields.io/pub/v/codifyiq_audio_message.svg)](https://pub.dev/packages/codifyiq_audio_message) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_brightness_button](packages/codifyiq_brightness_button) | [![pub](https://img.shields.io/pub/v/codifyiq_brightness_button.svg)](https://pub.dev/packages/codifyiq_brightness_button) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| [codifyiq_chat_attachments](packages/codifyiq_chat_attachments) | [![pub](https://img.shields.io/pub/v/codifyiq_chat_attachments.svg)](https://pub.dev/packages/codifyiq_chat_attachments) | ✔ | ✔ | ✔ ⁴ | ✔ | — |
 | [codifyiq_group_manager](packages/codifyiq_group_manager) | [![pub](https://img.shields.io/pub/v/codifyiq_group_manager.svg)](https://pub.dev/packages/codifyiq_group_manager) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_image_viewer](packages/codifyiq_image_viewer) | [![pub](https://img.shields.io/pub/v/codifyiq_image_viewer.svg)](https://pub.dev/packages/codifyiq_image_viewer) | ✔ | ✔ | ✔ ¹ | ✔ | ✔ |
 | [codifyiq_notification_center](packages/codifyiq_notification_center) | [![pub](https://img.shields.io/pub/v/codifyiq_notification_center.svg)](https://pub.dev/packages/codifyiq_notification_center) | ✔ | ✔ | ✔ | ✔ | ✔ |
@@ -36,6 +37,7 @@ but publish independently. **Depend on a widget and you get its dependencies; no
 > ¹ `ImageViewerItem.file` is unsupported on Flutter web; use `.network`, `.asset`, or a custom `ImageProvider`.
 > ² PDFs loaded via `PdfSource.uri` require CORS headers; `PdfSource.file` is unsupported on web.
 > ³ HTTP headers on `VideoSource.uri` are ignored on web, and `VideoSource.file` is unsupported there.
+> ⁴ Message sources are always loaded as URLs on web, and HTTP headers for videos and audio are ignored there.
 
 ## Requirements
 

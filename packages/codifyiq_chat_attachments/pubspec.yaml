@@ -1,0 +1,41 @@
+name: codifyiq_chat_attachments
+description: Image, file and video message bubbles for flutter_chat_ui that open the CodifyIQ image, PDF and video viewers.
+version: 1.0.0
+homepage: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_chat_attachments
+repository: https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/packages/codifyiq_chat_attachments
+issue_tracker: https://github.com/CodifyIQ/codifyiq-core-components/issues
+topics:
+  - codifyiq
+  - ui
+  - widgets
+  - chat
+
+resolution: workspace
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  codifyiq_audio_message: ^2.0.0
+  codifyiq_image_viewer: ^2.0.0
+  codifyiq_pdf_viewer: ^2.0.0
+  codifyiq_video_viewer: ^1.0.0
+  cross_cache: ^1.1.1
+  flutter_chat_core: ^2.9.1
+  material_ui: ^1.0.0
+  provider: ^6.1.5
+  thumbhash: ^0.1.0+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  video_player_platform_interface: ^6.9.0
+  wakelock_plus: ^1.8.0
+  wakelock_plus_platform_interface: ^1.7.0
+
+flutter:
+  uses-material-design: true
