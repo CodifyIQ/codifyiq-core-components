@@ -10,6 +10,11 @@ import 'package:photo_view/photo_view.dart';
 import '_image_viewer_file_io.dart'
     if (dart.library.html) '_image_viewer_file_web.dart'
     as file_loader;
+import 'image_viewer_app_bar.dart';
+import 'nav_arrow_button.dart';
+import 'page_dots.dart';
+import 'placeholder_image.dart';
+import 'viewer_scrim.dart';
 
 /// Describes a single image shown by an [ImageViewerWidget].
 ///
@@ -28,16 +33,19 @@ class ImageViewerItem {
   /// [provider] is the image source.
   /// [id] identifies the image in the consumer's own model.
   /// [filename] is a suggested file name for share/download flows.
-  /// [title] is an optional caption available to consuming code (forwarded to
-  /// action callbacks; not rendered directly by [ImageViewerWidget]).
+  /// [title] is a short name shown in the viewer's header.
+  /// [caption] is longer descriptive text shown in the viewer's footer.
   /// [heroTag] enables a [Hero] transition into the viewer from a matching
   /// thumbnail.
+  /// [placeholder] is a low-resolution image shown until [provider] loads.
   const ImageViewerItem({
     required this.provider,
     this.id,
     this.filename,
     this.title,
+    this.caption,
     this.heroTag,
+    this.placeholder,
   });
 
   /// Loads an image from the app's asset bundle.
@@ -47,13 +55,17 @@ class ImageViewerItem {
     String? id,
     String? filename,
     String? title,
+    String? caption,
     Object? heroTag,
+    ImageProvider? placeholder,
   }) => ImageViewerItem(
     provider: AssetImage(name, package: package),
     id: id,
     filename: filename,
     title: title,
+    caption: caption,
     heroTag: heroTag,
+    placeholder: placeholder,
   );
 
   /// Loads an image from a network URL.
@@ -63,13 +75,17 @@ class ImageViewerItem {
     String? id,
     String? filename,
     String? title,
+    String? caption,
     Object? heroTag,
+    ImageProvider? placeholder,
   }) => ImageViewerItem(
     provider: NetworkImage(url, headers: headers),
     id: id,
     filename: filename,
     title: title,
+    caption: caption,
     heroTag: heroTag,
+    placeholder: placeholder,
   );
 
   /// Loads an image from a file on the local device.
@@ -82,13 +98,17 @@ class ImageViewerItem {
     String? id,
     String? filename,
     String? title,
+    String? caption,
     Object? heroTag,
+    ImageProvider? placeholder,
   }) => ImageViewerItem(
     provider: file_loader.fileImageProvider(path),
     id: id,
     filename: filename,
     title: title,
+    caption: caption,
     heroTag: heroTag,
+    placeholder: placeholder,
   );
 
   /// The underlying [ImageProvider] used to load this image.
@@ -109,9 +129,13 @@ class ImageViewerItem {
 
   /// Optional human-readable title for the image.
   ///
-  /// Forwarded to action callbacks so consumers can label share/download
-  /// flows without looking the title up again.
+  /// Shown in the viewer's header above the page indicator, in place of
+  /// [filename]. Also forwarded to action callbacks so consumers can label
+  /// share/download flows without looking the title up again.
   final String? title;
+
+  /// Optional caption describing the image, shown in the viewer's footer.
+  final String? caption;
 
   /// Optional tag for a [Hero] transition from a thumbnail into the viewer.
   ///
@@ -124,6 +148,16 @@ class ImageViewerItem {
   /// the gallery do not receive a Hero, so the transition always reflects the
   /// photo actually on screen at the moment the route is pushed or popped.
   final Object? heroTag;
+
+  /// Optional low-resolution image, such as the thumbnail the viewer was
+  /// opened from, shown in place of the loading indicator until [provider]
+  /// has loaded.
+  ///
+  /// Pass the same [ImageProvider] the thumbnail used: it is then already in
+  /// memory, so the page shows it at once and a [Hero] from the thumbnail
+  /// lands on it. It is drawn fitted like the full image, so give it the same
+  /// aspect ratio. A placeholder that fails to load is ignored.
+  final ImageProvider? placeholder;
 }
 
 /// Callback signature for the viewer's action menu items.
@@ -144,19 +178,23 @@ typedef ImageViewerActionCallback =
 typedef ImageViewerShareCallback =
     void Function(ImageViewerItem item, int index, Rect? sharePositionOrigin);
 
-/// A consumer-defined entry in the viewer's overflow menu.
+/// A consumer-defined action, shown in the viewer's overflow menu or as a
+/// button in its header.
 ///
 /// Use this for actions beyond the built-in Share / Download / Delete, such
 /// as "Set as featured". Pass a list to [ImageViewerWidget.actions].
 class ImageViewerAction {
   /// Creates an [ImageViewerAction].
   ///
-  /// [label] is the menu item text, [icon] its leading icon, and
-  /// [onSelected] is called with the visible image when the item is chosen.
+  /// [label] is the menu item text (or the button's tooltip), [icon] its
+  /// icon, and [onSelected] is called with the visible image when the action
+  /// is chosen.
   const ImageViewerAction({
     required this.label,
     required this.icon,
     required this.onSelected,
+    this.showInAppBar = false,
+    this.isVisible,
   });
 
   /// Text shown for the menu item.
@@ -167,6 +205,53 @@ class ImageViewerAction {
 
   /// Called with the visible item and its index when the action is chosen.
   final ImageViewerActionCallback onSelected;
+
+  /// Whether the action is a button in the header rather than an entry in
+  /// the overflow menu. Defaults to `false`.
+  final bool showInAppBar;
+
+  /// Decides, for the visible image, whether the action is offered — for
+  /// example, hiding "Set as featured" on the image that already is. When
+  /// `null`, the action is offered for every image.
+  final bool Function(ImageViewerItem item, int index)? isVisible;
+}
+
+/// Builds the header title for the visible image.
+///
+/// [item] is the visible image, [index] its zero-based position and [total]
+/// the number of images.
+typedef ImageViewerTitleBuilder =
+    Widget Function(
+      BuildContext context,
+      ImageViewerItem item,
+      int index,
+      int total,
+    );
+
+/// Builds the footer for the visible image, or returns `null` for none.
+///
+/// [item] is the visible image, [index] its zero-based position and [total]
+/// the number of images.
+typedef ImageViewerFooterBuilder =
+    Widget? Function(
+      BuildContext context,
+      ImageViewerItem item,
+      int index,
+      int total,
+    );
+
+/// How the viewer's header and footer sit relative to the image.
+enum ImageViewerControlsLayout {
+  /// The image fills the screen and the header and footer float over it on a
+  /// dark gradient. Tapping the image hides or shows them, unless
+  /// [ImageViewerWidget.controlsHideOnTap] is `false`. The usual layout for
+  /// phones.
+  overlay,
+
+  /// The header and footer sit above and below the image, which fits in the
+  /// space between them, so they never cover it. The usual layout for
+  /// tablets and desktop.
+  inset,
 }
 
 /// A modern, full-screen image viewer with swipe navigation, pinch zoom & pan,
@@ -195,13 +280,33 @@ class ImageViewerAction {
 ///   [maxScale] relative to the fit-to-screen scale.
 /// * **Drag** — pans a zoomed image.
 /// * **Double-tap** — cycles between fit-to-screen and zoomed-in states.
+/// * **Escape** — closes the viewer.
+///
+/// ## Layout
+///
+/// Follows the Material 3 breakpoints. In windows narrower than 600dp or
+/// shorter than 480dp (phones, upright or on their side), the image fills the screen and the header and footer float over
+/// it on a dark gradient; tapping the image hides or shows them. In wider
+/// windows (tablets, desktop and most browser windows), the header and
+/// footer sit above and below the image, which fits between them with a
+/// 24dp margin so they never cover it. Choose a layout yourself with
+/// [controlsLayout], and set the space around the image with
+/// [contentPadding].
+///
+/// ## Header and footer
+///
+/// The header shows the image's [ImageViewerItem.title] (or its
+/// [ImageViewerItem.filename]) above the page indicator; replace it with
+/// [titleBuilder]. The footer shows the image's [ImageViewerItem.caption] and,
+/// for up to 20 images, a row of page dots; replace it with [footerBuilder].
 ///
 /// ## Actions
 ///
 /// Provide [onShare], [onDownload], and/or [onDelete] to enable the
 /// corresponding menu items. Menu items with `null` callbacks are hidden.
-/// Add your own entries to the overflow menu with [actions]. The overflow
-/// menu itself is hidden when it would be empty.
+/// Add your own actions with [actions], as overflow menu entries or, with
+/// [ImageViewerAction.showInAppBar], header buttons. The overflow menu itself
+/// is hidden when it would be empty.
 ///
 /// ## Changing items while open
 ///
@@ -223,9 +328,8 @@ class ImageViewerAction {
 ///
 /// ## Foundation
 ///
-/// This widget is intentionally minimal — a clean, expandable foundation.
 /// Loading and error placeholders are customisable via [loadingBuilder] and
-/// [errorBuilder], and the title in the app bar via [pageIndicatorBuilder].
+/// [errorBuilder], and the page indicator text via [pageIndicatorBuilder].
 ///
 /// ```dart
 /// Navigator.of(context).push(
@@ -264,6 +368,11 @@ class ImageViewerWidget extends StatefulWidget {
     this.loadingBuilder,
     this.errorBuilder,
     this.errorMessage = 'Unable to load image',
+    this.controlsLayout,
+    this.contentPadding,
+    this.controlsHideOnTap = true,
+    this.titleBuilder,
+    this.footerBuilder,
   }) : assert(items.length > 0, 'items must contain at least one image');
 
   /// The images to display, in the order they should appear.
@@ -306,13 +415,14 @@ class ImageViewerWidget extends StatefulWidget {
   /// Delete menu item is hidden.
   final ImageViewerActionCallback? onDelete;
 
-  /// Additional overflow-menu actions, shown in order above Delete.
+  /// Additional actions. Header buttons ([ImageViewerAction.showInAppBar])
+  /// follow Share or Download; menu entries are shown in order above Delete.
   final List<ImageViewerAction> actions;
 
   /// Called whenever the visible page changes, with the new zero-based index.
   final ValueChanged<int>? onPageChanged;
 
-  /// Builds the title displayed in the app bar.
+  /// Builds the page indicator text shown in the header.
   ///
   /// Receives the zero-based [currentIndex] and the [total] image count and
   /// must return the string to display. Defaults to `"<index+1> / <total>"`.
@@ -333,6 +443,41 @@ class ImageViewerWidget extends StatefulWidget {
   /// Message displayed by the default error placeholder.
   final String errorMessage;
 
+  /// How the header and footer sit relative to the image.
+  ///
+  /// When `null` (the default), windows narrower than 600dp or shorter than
+  /// 480dp use [ImageViewerControlsLayout.overlay] and others
+  /// [ImageViewerControlsLayout.inset], following the Material 3 breakpoints.
+  final ImageViewerControlsLayout? controlsLayout;
+
+  /// Space around the image, inside the area it is shown in. Swipes and
+  /// pull-to-dismiss work from it as well as from the image.
+  ///
+  /// When `null`, an [ImageViewerControlsLayout.inset] layout uses the 24dp
+  /// Material 3 margin on every side. An
+  /// [ImageViewerControlsLayout.overlay] layout lets the image fill the
+  /// screen, apart from 12dp at the sides on mobile, which keeps page swipes
+  /// clear of Android's back gesture.
+  final EdgeInsetsGeometry? contentPadding;
+
+  /// Whether tapping the image hides or shows the header and footer in an
+  /// [ImageViewerControlsLayout.overlay] layout. Defaults to `true`.
+  final bool controlsHideOnTap;
+
+  /// Builds the header title for the visible image.
+  ///
+  /// Defaults to the image's [ImageViewerItem.title], or its
+  /// [ImageViewerItem.filename], above the page indicator, or the page
+  /// indicator alone when the image has neither.
+  final ImageViewerTitleBuilder? titleBuilder;
+
+  /// Builds the footer for the visible image; return `null` for none.
+  ///
+  /// Defaults to the image's [ImageViewerItem.caption] and, for 2 to 20
+  /// images, a row of page dots. There is no footer when the image has no
+  /// caption and there is a single image.
+  final ImageViewerFooterBuilder? footerBuilder;
+
   @override
   State<ImageViewerWidget> createState() => _ImageViewerWidgetState();
 }
@@ -343,6 +488,9 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
   late List<PhotoViewScaleStateController> _scaleStateControllers;
   late int _currentIndex;
   bool _isZoomed = false;
+
+  // Whether the header and footer are showing, in the overlay layout.
+  bool _controlsVisible = true;
 
   // The viewer's own copy of `widget.items`. Comparing against a copy is what
   // lets it notice a consumer changing its list in place, where the old and
@@ -359,14 +507,6 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
 
   // Key for the overflow ⋮ button.
   final GlobalKey _overflowMenuKey = GlobalKey();
-
-  // Horizontal inset around the gallery so swipes don't start in the Android
-  // system back-gesture zone. Without this inset, on Android in portrait the
-  // image fills the full screen width and the first swipe of each sequence is
-  // consumed by the system as a back-gesture preview, requiring a second
-  // swipe to actually flip pages. Landscape isn't affected because contained
-  // images leave horizontal letterbox bands at the edges.
-  static const double _kHorizontalGalleryInset = 12;
 
   // Pull-to-dismiss — per-pointer tracking, deduped by pointer ID.
   static const double _kDismissStartSlop = 12;
@@ -695,37 +835,152 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
     );
   }
 
+  // Material 3's compact breakpoints: a window narrower than 600dp, or
+  // shorter than 480dp (a phone in landscape), is a phone's.
+  static const double _kCompactWidth = 600;
+  static const double _kCompactHeight = 480;
+
+  // Keeps the gallery, with its page and zoom, when a resize or rotation
+  // moves it between the overlay and inset layouts.
+  final GlobalKey _galleryKey = GlobalKey();
+
+  bool _actionIsVisible(ImageViewerAction action) =>
+      action.isVisible?.call(_items[_currentIndex], _currentIndex) ?? true;
+
+  void _toggleControls() =>
+      setState(() => _controlsVisible = !_controlsVisible);
+
+  Widget _defaultTitle(ImageViewerItem item, String indicator) {
+    final color = widget.foregroundColor;
+    final indicatorText = Text(
+      indicator,
+      style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w500),
+    );
+    final name = item.title ?? item.filename;
+    if (name == null) return indicatorText;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          indicator,
+          style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget? _defaultFooter(ImageViewerItem item, int index, int total) {
+    final caption = item.caption;
+    // Past 20 images the dots get too small to tell apart; the header
+    // already shows the position.
+    final showDots = total > 1 && total <= 20;
+    if (caption == null && !showDots) return null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (caption != null)
+          Text(
+            caption,
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: widget.foregroundColor, fontSize: 13),
+          ),
+        if (caption != null && showDots) const SizedBox(height: 8),
+        if (showDots)
+          PageDots(
+            count: total,
+            currentIndex: index,
+            color: widget.foregroundColor,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWeb = kIsWeb;
     final total = _items.length;
+    final item = _items[_currentIndex];
     final indicator = (widget.pageIndicatorBuilder ?? _defaultPageIndicator)
         .call(_currentIndex, total);
 
-    final screenHeight = MediaQuery.sizeOf(context).height;
+    final screenSize = MediaQuery.sizeOf(context);
+    final layout =
+        widget.controlsLayout ??
+        (screenSize.width < _kCompactWidth ||
+                screenSize.height < _kCompactHeight
+            ? ImageViewerControlsLayout.overlay
+            : ImageViewerControlsLayout.inset);
+    final isOverlay = layout == ImageViewerControlsLayout.overlay;
+    final contentPadding =
+        (widget.contentPadding ??
+                (isOverlay
+                    // Keeps swipes clear of Android's back gesture: without it, the
+                    // first swipe of each sequence previews going back instead of
+                    // turning the page.
+                    ? EdgeInsets.symmetric(horizontal: isWeb ? 0 : 12)
+                    : const EdgeInsets.all(24)))
+            .resolve(Directionality.of(context));
+    // Even padding can be left to photo_view, which then fits the image
+    // inside it while the gallery, and its gestures, cover the margin too.
+    final isEvenPadding =
+        contentPadding.left == contentPadding.right &&
+        contentPadding.top == contentPadding.bottom;
+    final canToggleControls = isOverlay && widget.controlsHideOnTap;
+    // Taps on a page that is loading or failed don't reach photo_view.
+    Widget tapToToggle(Widget child) => canToggleControls
+        ? GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleControls,
+            child: child,
+          )
+        : child;
+    // Hidden controls only exist in the overlay layout.
+    final controlsVisible = !isOverlay || _controlsVisible;
+
     final onDownload = widget.onDownload;
     final onDelete = widget.onDelete;
-    final dismissProgress = (_dragY / screenHeight).clamp(0.0, 1.0);
+    final dismissProgress = (_dragY / screenSize.height).clamp(0.0, 1.0);
     final bgAlpha = 1.0 - dismissProgress * 0.7;
 
-    final gallery = ScrollConfiguration(
+    Widget buildGallery(Size? customSize) => ScrollConfiguration(
       behavior: const _ViewerScrollBehavior(),
       child: PhotoViewGallery.builder(
         key: ValueKey(_galleryEpoch),
+        customSize: customSize,
         scrollPhysics: const BouncingScrollPhysics(),
-        backgroundDecoration: BoxDecoration(color: widget.backgroundColor),
+        backgroundDecoration: const BoxDecoration(color: Colors.transparent),
         pageController: _pageController,
         onPageChanged: _handlePageChanged,
         // Gallery-level callback lets photo_view manage its own scroll lock
         // (disabling page swiping while an image is zoomed in).
         scaleStateChangedCallback: _onScaleStateChanged,
         itemCount: total,
-        loadingBuilder: (context, event) =>
-            widget.loadingBuilder?.call(context) ?? _defaultLoading(context),
+        loadingBuilder: (context, event) => tapToToggle(
+          widget.loadingBuilder?.call(context) ?? _defaultLoading(context),
+        ),
         builder: (context, index) {
           final item = _items[index];
           return PhotoViewGalleryPageOptions(
-            imageProvider: item.provider,
+            imageProvider: switch (item.placeholder) {
+              final placeholder? => PlaceholderImage(
+                item.provider,
+                placeholder,
+              ),
+              null => item.provider,
+            },
             scaleStateController: _scaleStateControllers[index],
             initialScale: PhotoViewComputedScale.contained,
             minScale: PhotoViewComputedScale.contained * widget.minScale,
@@ -742,9 +997,11 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
             // regions (around a contained image) are captured and count
             // toward the page-flip gesture on both web and mobile.
             gestureDetectorBehavior: HitTestBehavior.opaque,
-            errorBuilder: (context, error, stackTrace) =>
-                widget.errorBuilder?.call(context, error) ??
-                _defaultError(context),
+            onTapUp: canToggleControls ? (_, _, _) => _toggleControls() : null,
+            errorBuilder: (context, error, stackTrace) => tapToToggle(
+              widget.errorBuilder?.call(context, error) ??
+                  _defaultError(context),
+            ),
           );
         },
       ),
@@ -753,70 +1010,161 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
     // The Listener wraps only the gallery. Arrow buttons are Stack siblings so
     // their taps never enter the PhotoViewGallery gesture chain.
     final listenedGallery = Listener(
+      key: _galleryKey,
+      // Pull-to-dismiss also starts in the margin around the image.
+      behavior: HitTestBehavior.opaque,
       onPointerDown: _onPointerDown,
       onPointerMove: isWeb ? null : _onPointerMove,
       onPointerUp: _onPointerUp,
       onPointerCancel: _onPointerCancel,
-      child: gallery,
+      child: isEvenPadding
+          ? LayoutBuilder(
+              builder: (context, constraints) =>
+                  buildGallery(contentPadding.deflateSize(constraints.biggest)),
+            )
+          : Padding(padding: contentPadding, child: buildGallery(null)),
     );
 
-    // Stack is always used so the featured badge and web arrows can be
-    // layered above the gallery without nesting inside the Listener.
-    final body = Stack(
-      fit: StackFit.expand,
-      children: [
-        if (!isWeb)
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _kHorizontalGalleryInset,
+    // Web: arrow buttons overlaid outside the Listener so photo_view gesture
+    // recognizers can't absorb the taps. [wrap] lets the overlay fade them.
+    List<Widget> buildArrows(Widget Function(Widget) wrap) => [
+      if (isWeb && _currentIndex > 0)
+        Positioned(
+          left: 16,
+          top: 0,
+          bottom: 0,
+          child: wrap(
+            Center(
+              child: NavArrowButton(
+                icon: Icons.chevron_left,
+                foregroundColor: widget.foregroundColor,
+                onTap: () => _pageController.previousPage(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                ),
+              ),
             ),
-            child: listenedGallery,
-          )
-        else
+          ),
+        ),
+      if (isWeb && _currentIndex < total - 1)
+        Positioned(
+          right: 16,
+          top: 0,
+          bottom: 0,
+          child: wrap(
+            Center(
+              child: NavArrowButton(
+                icon: Icons.chevron_right,
+                foregroundColor: widget.foregroundColor,
+                onTap: () => _pageController.nextPage(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                ),
+              ),
+            ),
+          ),
+        ),
+    ];
+
+    final appBarActions = <ImageViewerAppBarAction>[];
+    final menuActions = <ImageViewerAppBarAction>[];
+    for (final action in widget.actions) {
+      if (!_actionIsVisible(action)) continue;
+      (action.showInAppBar ? appBarActions : menuActions).add((
+        label: action.label,
+        icon: action.icon,
+        onPressed: () => _invoke(action.onSelected),
+      ));
+    }
+    final header = ImageViewerAppBar(
+      title:
+          widget.titleBuilder?.call(context, item, _currentIndex, total) ??
+          _defaultTitle(item, indicator),
+      foregroundColor: widget.foregroundColor,
+      isWeb: isWeb,
+      shareButtonKey: _shareButtonKey,
+      overflowMenuKey: _overflowMenuKey,
+      // Like AppBar's own back button, left out when it would do nothing.
+      onClose: (ModalRoute.of(context)?.canPop ?? false) ? _handleClose : null,
+      onShare: widget.onShare == null ? null : _handleShare,
+      onDownload: onDownload == null ? null : () => _invoke(onDownload),
+      onDelete: onDelete == null ? null : () => _invoke(onDelete),
+      appBarActions: appBarActions,
+      menuActions: menuActions,
+    );
+
+    final footerContent = widget.footerBuilder != null
+        ? widget.footerBuilder!(context, item, _currentIndex, total)
+        : _defaultFooter(item, _currentIndex, total);
+    final footer = footerContent == null
+        ? null
+        : SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, isOverlay ? 24 : 8, 16, 12),
+              child: footerContent,
+            ),
+          );
+
+    final Widget body;
+    if (isOverlay) {
+      // Over the image the controls need a scrim to stay legible, and fade
+      // out together when the image is tapped.
+      Widget fade(Widget child) => IgnorePointer(
+        ignoring: !controlsVisible,
+        child: AnimatedOpacity(
+          opacity: controlsVisible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: child,
+        ),
+      );
+      body = Stack(
+        fit: StackFit.expand,
+        children: [
           listenedGallery,
-        // Web: arrow buttons overlaid outside the Listener so photo_view
-        // gesture recognizers can't absorb the taps.
-        if (isWeb && total > 1) ...[
-          if (_currentIndex > 0)
+          ...buildArrows(fade),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: fade(ViewerScrim(fromTop: true, child: header)),
+          ),
+          if (footer != null)
             Positioned(
-              left: 16,
-              top: 0,
               bottom: 0,
-              child: Center(
-                child: _NavArrowButton(
-                  icon: Icons.chevron_left,
-                  foregroundColor: widget.foregroundColor,
-                  onTap: () => _pageController.previousPage(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                  ),
-                ),
-              ),
-            ),
-          if (_currentIndex < total - 1)
-            Positioned(
-              right: 16,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: _NavArrowButton(
-                  icon: Icons.chevron_right,
-                  foregroundColor: widget.foregroundColor,
-                  onTap: () => _pageController.nextPage(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                  ),
-                ),
-              ),
+              left: 0,
+              right: 0,
+              child: fade(ViewerScrim(fromTop: false, child: footer)),
             ),
         ],
-      ],
-    );
+      );
+    } else {
+      body = Column(
+        children: [
+          header,
+          Expanded(
+            child: SafeArea(
+              top: false,
+              bottom: footer == null,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [listenedGallery, ...buildArrows((child) => child)],
+              ),
+            ),
+          ),
+          ?footer,
+        ],
+      );
+    }
 
     return Focus(
       autofocus: true,
       onKeyEvent: (_, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _handleClose();
+          return KeyEventResult.handled;
+        }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
             _currentIndex < total - 1) {
           _pageController.nextPage(
@@ -841,171 +1189,10 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget>
           offset: Offset(0, _dragY),
           child: Scaffold(
             backgroundColor: widget.backgroundColor.withValues(alpha: bgAlpha),
-            extendBodyBehindAppBar: true,
-            appBar: _ImageViewerAppBar(
-              title: indicator,
-              foregroundColor: widget.foregroundColor,
-              isWeb: isWeb,
-              shareButtonKey: _shareButtonKey,
-              overflowMenuKey: _overflowMenuKey,
-              onClose: _handleClose,
-              onShare: widget.onShare == null ? null : _handleShare,
-              onDownload: onDownload == null ? null : () => _invoke(onDownload),
-              onDelete: onDelete == null ? null : () => _invoke(onDelete),
-              actions: widget.actions,
-              onAction: (action) => _invoke(action.onSelected),
-            ),
             body: body,
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Transparent app bar with a close button, page indicator, and action buttons.
-///
-/// On web: Download is a direct icon button; Share and Delete are in the overflow menu.
-/// On mobile: Share is a direct icon button; Download and Delete are in the overflow menu.
-class _ImageViewerAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
-  const _ImageViewerAppBar({
-    required this.title,
-    required this.foregroundColor,
-    required this.isWeb,
-    this.shareButtonKey,
-    this.overflowMenuKey,
-    this.onClose,
-    this.onShare,
-    this.onDownload,
-    this.onDelete,
-    this.actions = const [],
-    this.onAction,
-  });
-
-  final String title;
-  final Color foregroundColor;
-  final bool isWeb;
-
-  /// Consumer-defined overflow entries, shown above Delete.
-  final List<ImageViewerAction> actions;
-
-  /// Called when one of [actions] is chosen.
-  final ValueChanged<ImageViewerAction>? onAction;
-
-  /// Key attached to the mobile Share [IconButton] so the parent state can
-  /// read its [RenderBox] for the iPad share-sheet anchor rect.
-  final GlobalKey? shareButtonKey;
-
-  /// Key attached to the overflow [PopupMenuButton].
-  final GlobalKey? overflowMenuKey;
-
-  /// Called when the user taps the close button. When provided, the caller
-  /// can intercept the pop to restore Hero state before dismissing.
-  final VoidCallback? onClose;
-  final VoidCallback? onShare;
-  final VoidCallback? onDownload;
-  final VoidCallback? onDelete;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  // Overflow menu is shown when there are items to put in it.
-  // Web: Share + custom + Delete. Mobile: Download + custom + Delete.
-  bool get _hasOverflow =>
-      actions.isNotEmpty ||
-      (isWeb
-          ? (onShare != null || onDelete != null)
-          : (onDownload != null || onDelete != null));
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      foregroundColor: foregroundColor,
-      iconTheme: IconThemeData(color: foregroundColor),
-      centerTitle: true,
-      title: Text(
-        title,
-        style: TextStyle(
-          color: foregroundColor,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-        onPressed: onClose ?? () => Navigator.of(context).maybePop(),
-      ),
-      actions: [
-        // Web: Download as a visible icon button in the app bar.
-        if (isWeb && onDownload != null)
-          IconButton(
-            icon: Icon(Icons.download_outlined, color: foregroundColor),
-            tooltip: 'Download',
-            onPressed: onDownload,
-          ),
-        // Mobile: Share as a visible icon button in the app bar.
-        if (!isWeb && onShare != null)
-          IconButton(
-            key: shareButtonKey,
-            icon: Icon(Icons.share_outlined, color: foregroundColor),
-            tooltip: 'Share',
-            onPressed: onShare,
-          ),
-        if (_hasOverflow)
-          PopupMenuButton<VoidCallback>(
-            key: overflowMenuKey,
-            icon: Icon(Icons.more_vert, color: foregroundColor),
-            tooltip: 'More actions',
-            onSelected: (callback) => callback(),
-            itemBuilder: (context) => [
-              // Web: Share in overflow.
-              if (isWeb && onShare != null)
-                PopupMenuItem(
-                  value: onShare,
-                  child: const ListTile(
-                    leading: Icon(Icons.share_outlined),
-                    title: Text('Share'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              // Mobile: Download in overflow.
-              if (!isWeb && onDownload != null)
-                PopupMenuItem(
-                  value: onDownload,
-                  child: const ListTile(
-                    leading: Icon(Icons.download_outlined),
-                    title: Text('Download'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              // Both platforms: consumer-defined actions.
-              for (final action in actions)
-                PopupMenuItem(
-                  value: () => onAction?.call(action),
-                  child: ListTile(
-                    leading: Icon(action.icon),
-                    title: Text(action.label),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              // Both platforms: Delete.
-              if (onDelete != null)
-                PopupMenuItem(
-                  value: onDelete,
-                  child: const ListTile(
-                    leading: Icon(Icons.delete_outline),
-                    title: Text('Delete'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-            ],
-          ),
-      ],
     );
   }
 }
@@ -1018,33 +1205,4 @@ class _ViewerScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => PointerDeviceKind.values.toSet();
-}
-
-/// Circular arrow button for click-based navigation on web.
-class _NavArrowButton extends StatelessWidget {
-  const _NavArrowButton({
-    required this.icon,
-    required this.foregroundColor,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color foregroundColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black38,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: foregroundColor, size: 28),
-        ),
-      ),
-    );
-  }
 }
