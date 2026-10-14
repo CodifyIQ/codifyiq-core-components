@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';
+import 'chat_attachments_example.dart';
 import 'group_manager_example.dart';
 import 'notification_center_example.dart';
 import 'pdf_viewer_widget_example.dart';
@@ -66,6 +67,12 @@ final GoRouter router = GoRouter(
       path: "/image-viewer",
       builder: (BuildContext context, GoRouterState state) {
         return ImageViewerWidgetExample();
+      },
+    ),
+    GoRoute(
+      path: "/chat-attachments",
+      builder: (BuildContext context, GoRouterState state) {
+        return const ChatAttachmentsExample();
       },
     ),
     GoRoute(

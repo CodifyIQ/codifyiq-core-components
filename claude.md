@@ -119,6 +119,7 @@ class MyWidget extends StatelessWidget {
 | `codifyiq_ai_progress_indicator` | Shimmer progress indicator for AI actions | `shimmer` |
 | `codifyiq_audio_message` | Chat-style audio player (pluggable backend) | `just_audio` |
 | `codifyiq_brightness_button` | Light/Dark/System theme toggle | `adaptive_theme` |
+| `codifyiq_chat_attachments` | flutter_chat_ui image/file/video/audio bubbles that open the viewers | `flutter_chat_core`, `thumbhash`, the image/PDF/video viewer and audio message packages |
 | `codifyiq_group_manager` | Authorization group catalog + assignment from either end (groups→member, members→group) | `codifyiq_user_avatar` |
 | `codifyiq_image_viewer` | Full-screen image viewer (swipe, pinch-zoom) | `photo_view` |
 | `codifyiq_notification_center` | Play Store-style notification bell + center | — |

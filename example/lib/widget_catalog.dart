@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';
 import 'brightness_button_example.dart';
+import 'chat_attachments_example.dart';
 import 'group_manager_example.dart';
 import 'image_viewer_widget_example.dart';
 import 'notification_center_example.dart';
@@ -74,6 +75,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Light / Dark / System theme choice as a button or a menu submenu',
       'route': BrightnessButtonExample(),
+    },
+    {
+      'name': 'Chat Attachments',
+      'description':
+          'Chat image, file, video and audio bubbles that open the viewers',
+      'route': ChatAttachmentsExample(),
     },
     {
       'name': 'Group Manager',
