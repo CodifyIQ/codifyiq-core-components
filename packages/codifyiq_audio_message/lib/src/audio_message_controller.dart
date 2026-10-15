@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 
 import 'package:flutter/foundation.dart';
 
+import 'audio_message_source.dart';
 import 'audio_player_backend.dart';
 import 'just_audio_player_backend.dart';
 
@@ -24,17 +25,19 @@ enum AudioPlaybackState {
   error,
 }
 
-/// State container for a single audio message playback session.
+/// Plays audio messages, one at a time, for every player that shares it.
 ///
-/// Wraps an [AudioPlayerBackend] and exposes a simplified
-/// [AudioPlaybackState] enum, current [position], total [duration], and
-/// [progress] fraction — all driven by the underlying backend streams.
+/// Own one per screen, like a chat controller, and pass it to each
+/// `AudioMessageWidget` on that screen. Starting one message stops the one
+/// that was playing, and a message keeps playing when its widget is disposed
+/// — for example when a chat bubble scrolls out of view — until another
+/// starts or the controller is disposed. A widget without a controller
+/// creates its own.
 ///
-/// Typical lifecycle:
-/// 1. Create a controller with the audio [url].
-/// 2. Call [play] — the URL is fetched on the first call (state → loading).
-/// 3. Call [pause] / [play] to toggle; [seek] to jump to a position.
-/// 4. Dispose the controller when the owning widget is removed.
+/// It exposes the [currentId] being played, a simplified
+/// [AudioPlaybackState], the current [position], total [duration], and
+/// [progress] — all driven by the underlying backend streams. The source is
+/// loaded on the first [play] of each message.
 ///
 /// Pass a custom [backend] to substitute the default `just_audio` binding —
 /// useful for testing or platforms where `just_audio` is unavailable.
@@ -42,22 +45,23 @@ enum AudioPlaybackState {
 /// This controller is **UI-only**: it does not manage downloads, caching,
 /// or upload — consumers wire it to their own data layer.
 class AudioMessageController extends ChangeNotifier {
-  /// Creates a controller for the audio at [url].
+  /// Creates an [AudioMessageController].
   ///
   /// [backend] defaults to [JustAudioPlayerBackend]. Supply a custom
   /// implementation to swap the audio engine or inject a test double.
-  AudioMessageController(this.url, {AudioPlayerBackend? backend})
+  AudioMessageController({AudioPlayerBackend? backend})
     : _backend = backend ?? JustAudioPlayerBackend() {
     _listenToBackend();
   }
 
-  /// The audio source URL (HTTP/HTTPS) or local file path.
-  final String url;
-
   final AudioPlayerBackend _backend;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
-  bool _initialized = false;
+  Object? _currentId;
+  AudioMessageSource? _source;
+  // Counts loads, so a load that a newer one replaced is ignored.
+  int _loads = 0;
+  bool _loaded = false;
   bool _disposed = false;
   bool _completedOnce = false;
   AudioPlaybackState _state = AudioPlaybackState.idle;
@@ -65,53 +69,71 @@ class AudioMessageController extends ChangeNotifier {
   Duration _duration = Duration.zero;
   String? _rawError;
 
+  /// The id of the message last passed to [play], whose playback the other
+  /// getters describe, or `null` before anything has played.
+  Object? get currentId => _currentId;
+
+  /// The source last passed to [play], with [currentId].
+  AudioMessageSource? get currentSource => _source;
+
   /// Raw platform error string when [state] is [AudioPlaybackState.error].
   /// Intended for logging only — may contain URLs or internal error codes.
   /// Display a fixed friendly message to users instead.
   String? get rawError => _rawError;
 
-  /// Current playback state.
+  /// Current playback state of [currentId].
   AudioPlaybackState get state => _state;
 
-  /// Current playback position.
+  /// Current playback position of [currentId].
   Duration get position => _position;
 
-  /// Total duration of the audio. Zero until the URL is loaded.
+  /// Total duration of [currentId]. Zero until its source is loaded.
   Duration get duration => _duration;
 
-  /// Playback progress in [0, 1]. Zero until the URL is loaded.
+  /// Playback progress in [0, 1]. Zero until the source is loaded.
   double get progress => _duration.inMilliseconds == 0
       ? 0.0
       : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0);
 
-  /// Loads the URL (on first call) then starts playback.
+  /// Plays the message [id], loading [source] unless it is already the
+  /// [currentId]. Any other message stops.
   ///
-  /// No-ops while [state] is [AudioPlaybackState.loading] or
-  /// [AudioPlaybackState.playing]. Calling [play] from
-  /// [AudioPlaybackState.error] clears the error and retries the load.
-  /// After audio completes, [play] seeks to the start and replays without
-  /// re-fetching the URL.
-  Future<void> play() async {
-    if (_disposed ||
-        _state == AudioPlaybackState.loading ||
-        _state == AudioPlaybackState.playing) {
+  /// No-ops while [id] is already loading or playing. Calling [play] after an
+  /// error retries the load, and after a message completes it plays again
+  /// from the start without re-fetching the source.
+  Future<void> play(Object id, AudioMessageSource source) async {
+    if (_disposed) return;
+    final isCurrent = id == _currentId && source == _source;
+    if (isCurrent &&
+        (_state == AudioPlaybackState.loading ||
+            _state == AudioPlaybackState.playing)) {
       return;
     }
 
     _rawError = null;
 
-    if (!_initialized) {
-      _initialized = true;
+    if (!isCurrent || !_loaded) {
+      final load = ++_loads;
+      _currentId = id;
+      _source = source;
+      _loaded = false;
+      _completedOnce = false;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _state = AudioPlaybackState.loading;
+      notifyListeners();
       try {
-        await _backend.setUrl(url);
+        await _backend.setSource(source);
       } catch (e) {
-        _initialized = false;
+        if (_disposed || load != _loads) return;
         _state = AudioPlaybackState.error;
         _rawError = e.toString();
         dev.log(_rawError!, name: 'AudioMessageController', level: 900);
         notifyListeners();
         return;
       }
+      if (_disposed || load != _loads) return;
+      _loaded = true;
     } else if (_completedOnce) {
       _completedOnce = false;
       await _backend.seek(Duration.zero);
@@ -122,12 +144,20 @@ class AudioMessageController extends ChangeNotifier {
   }
 
   /// Pauses playback. No-op when not playing or disposed.
+  ///
+  /// While [currentId] is still loading, it cancels the load's playback, so
+  /// the message doesn't start once its source arrives.
   Future<void> pause() async {
     if (_disposed) return;
+    if (_state == AudioPlaybackState.loading && !_loaded) {
+      _loads++;
+      _state = AudioPlaybackState.idle;
+      notifyListeners();
+    }
     await _backend.pause();
   }
 
-  /// Seeks to [progress] ∈ [0, 1] of the total duration.
+  /// Seeks [currentId] to [progress] ∈ [0, 1] of the total duration.
   ///
   /// No-op when disposed, duration unknown, or an error occurred.
   Future<void> seek(double progress) async {
@@ -143,13 +173,19 @@ class AudioMessageController extends ChangeNotifier {
   }
 
   void _listenToBackend() {
-    _subscriptions.add(_backend.stateStream.listen(_onBackendState));
+    // Players such as just_audio also report load and playback failures on
+    // their streams; handled here, they show as an error rather than escaping
+    // as uncaught errors.
+    _subscriptions.add(
+      _backend.stateStream.listen(_onBackendState, onError: _onBackendError),
+    );
     _subscriptions.add(
       _backend.positionStream.listen((pos) {
-        if (_disposed) return;
+        // Until the source has loaded, positions belong to the previous one.
+        if (_disposed || !_loaded) return;
         _position = pos;
         notifyListeners();
-      }),
+      }, onError: _onBackendError),
     );
     _subscriptions.add(
       _backend.durationStream.listen((dur) {
@@ -158,14 +194,26 @@ class AudioMessageController extends ChangeNotifier {
           _duration = dur;
           notifyListeners();
         }
-      }),
+      }, onError: _onBackendError),
     );
   }
 
+  void _onBackendError(Object error) {
+    if (_disposed || _state == AudioPlaybackState.error) return;
+    _loaded = false;
+    _state = AudioPlaybackState.error;
+    _rawError = error.toString();
+    dev.log(_rawError!, name: 'AudioMessageController', level: 900);
+    notifyListeners();
+  }
+
   void _onBackendState(AudioBackendState backendState) {
-    if (_disposed) return;
+    // Until the source has loaded, states belong to the previous one.
+    if (_disposed || !_loaded) return;
     switch (backendState.processingState) {
       case AudioBackendProcessingState.idle:
+        // A failed load leaves the backend idle; keep showing the error.
+        if (_state == AudioPlaybackState.error) return;
         _state = AudioPlaybackState.idle;
       case AudioBackendProcessingState.loading:
       case AudioBackendProcessingState.buffering:

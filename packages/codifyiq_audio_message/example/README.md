@@ -4,15 +4,22 @@
 import 'package:codifyiq_audio_message/codifyiq_audio_message.dart';
 import 'package:material_ui/material_ui.dart';
 
-// Simplest form — the widget manages its own controller from the URL.
+// Simplest form — the widget manages its own controller.
 Widget buildPlayer() {
-  return const AudioMessage(url: 'https://example.com/clip.m4a');
+  return AudioMessageWidget(
+    source: AudioMessageSource.uri(Uri.parse('https://example.com/clip.m4a')),
+    duration: const Duration(seconds: 42),
+  );
 }
 
-// Drive it yourself for finer control or a custom playback backend.
-Widget buildDrivenPlayer() {
-  final controller = AudioMessageController('https://example.com/clip.m4a');
-  return AudioMessage(url: controller.url, controller: controller);
+// In a list of messages, share one controller owned by the screen, so one
+// message plays at a time and playback survives scrolling.
+Widget buildMessagePlayer(AudioMessageController controller, String id) {
+  return AudioMessageWidget(
+    id: id,
+    source: AudioMessageSource.uri(Uri.parse('https://example.com/$id.m4a')),
+    controller: controller,
+  );
 }
 ```
 
