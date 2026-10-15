@@ -48,6 +48,7 @@ class PdfViewerWidget extends StatefulWidget {
     super.key,
     required this.source,
     this.enableSearch = false,
+    this.autofocusSearch = false,
     this.showZoomControlsOnWeb = true,
     this.showPageIndicator = true,
     this.showDownloadProgress = true,
@@ -68,6 +69,13 @@ class PdfViewerWidget extends StatefulWidget {
 
   /// Whether the in-document search bar is shown.
   final bool enableSearch;
+
+  /// Whether the search field takes focus as soon as the search bar appears,
+  /// so the user can type straight away. Useful when [enableSearch] is turned
+  /// on in response to a search button. If the bar appears while the document
+  /// is still loading, the field takes focus once it is ready to search.
+  /// Defaults to `false`.
+  final bool autofocusSearch;
 
   /// Whether +/− zoom buttons are shown on web. Has no effect on other
   /// platforms, where pinch-to-zoom is the primary zoom interaction.
@@ -137,6 +145,10 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
   Timer? _debounce;
 
   bool _viewerReady = false;
+
+  // Lets the search field take focus once the document is ready, when it
+  // appeared too early to autofocus (a disabled field can't take focus).
+  final FocusNode _searchFocus = FocusNode(debugLabel: 'PDF search');
   int? _currentPage;
   int _pageCount = 0;
   bool _querySubmitted = false;
@@ -192,6 +204,7 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
   void dispose() {
     _debounce?.cancel();
     _searchInput.dispose();
+    _searchFocus.dispose();
     _searcher
       ?..removeListener(_onSearchUpdate)
       ..dispose();
@@ -279,6 +292,12 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
           _pageCount = controller.pageCount;
           _currentPage = controller.pageNumber ?? 1;
         });
+        if (widget.enableSearch && widget.autofocusSearch) {
+          // After this frame has enabled the field.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _searchFocus.requestFocus();
+          });
+        }
         widget.onDocumentLoaded?.call(controller.pageCount);
       },
       onPageChanged: (pageNumber) {
@@ -372,6 +391,8 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
           _PdfSearchBar(
             controller: _searchInput,
             enabled: _viewerReady,
+            autofocus: widget.autofocusSearch,
+            focusNode: _searchFocus,
             onChanged: _onSearchChanged,
             onNext: (_searcher?.matches.isNotEmpty ?? false)
                 ? () => _stepMatch(forward: true)
@@ -425,6 +446,8 @@ class _PdfSearchBar extends StatelessWidget {
   const _PdfSearchBar({
     required this.controller,
     required this.enabled,
+    required this.autofocus,
+    required this.focusNode,
     required this.onChanged,
     required this.onNext,
     required this.onPrev,
@@ -433,6 +456,8 @@ class _PdfSearchBar extends StatelessWidget {
 
   final TextEditingController controller;
   final bool enabled;
+  final bool autofocus;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback? onNext;
   final VoidCallback? onPrev;
@@ -458,6 +483,8 @@ class _PdfSearchBar extends StatelessWidget {
                   return TextField(
                     controller: controller,
                     enabled: enabled,
+                    autofocus: autofocus,
+                    focusNode: focusNode,
                     onChanged: onChanged,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
