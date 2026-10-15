@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import 'audio_message_controller.dart';
@@ -98,10 +100,25 @@ class _AudioMessageWidgetState extends State<AudioMessageWidget> {
       _controller.currentId == _idOf(widget) &&
       _controller.currentSource == widget.source;
 
+  // Where the thumb is while it is dragged. Seeking only when the drag ends
+  // keeps position updates from playback from pulling it back meanwhile.
+  double? _dragProgress;
+
+  bool get _canSeek =>
+      _isCurrent &&
+      _controller.state != AudioPlaybackState.idle &&
+      _controller.state != AudioPlaybackState.error;
+
   @override
   void initState() {
     super.initState();
     _attach();
+  }
+
+  void _endDrag(double progress) {
+    setState(() => _dragProgress = null);
+    // Unless another message started playing meanwhile.
+    if (_canSeek) unawaited(_controller.seek(progress));
   }
 
   void _attach() {
@@ -116,6 +133,9 @@ class _AudioMessageWidgetState extends State<AudioMessageWidget> {
   // stopped being it, need to rebuild.
   void _onControllerChanged() {
     final isCurrent = _isCurrent;
+    // A drag ends when the message stops being seekable, such as when it
+    // buffers or finishes, as the slider then drops its end callback.
+    if (!_canSeek) _dragProgress = null;
     if (isCurrent || _wasCurrent) setState(() {});
     _wasCurrent = isCurrent;
   }
@@ -131,6 +151,11 @@ class _AudioMessageWidgetState extends State<AudioMessageWidget> {
         (_idOf(oldWidget) != _idOf(widget) ||
             oldWidget.source != widget.source)) {
       old.pause();
+    }
+    if (_idOf(oldWidget) != _idOf(widget) ||
+        oldWidget.source != widget.source ||
+        oldWidget.controller != widget.controller) {
+      _dragProgress = null;
     }
     if (widget.controller != oldWidget.controller) {
       _controller.removeListener(_onControllerChanged);
@@ -169,10 +194,15 @@ class _AudioMessageWidgetState extends State<AudioMessageWidget> {
     // A shared controller may be playing another message.
     final isCurrent = _isCurrent;
     final state = isCurrent ? controller.state : AudioPlaybackState.idle;
-    final position = isCurrent ? controller.position : Duration.zero;
     final duration = isCurrent && controller.duration > Duration.zero
         ? controller.duration
         : widget.duration ?? Duration.zero;
+    final dragProgress = _dragProgress;
+    final position = dragProgress != null
+        ? duration * dragProgress
+        : isCurrent
+        ? controller.position
+        : Duration.zero;
     final isInteractive =
         state != AudioPlaybackState.idle && state != AudioPlaybackState.error;
 
@@ -207,10 +237,14 @@ class _AudioMessageWidgetState extends State<AudioMessageWidget> {
                     ),
                   ),
                   child: Slider(
-                    value: isCurrent ? controller.progress : 0,
+                    value:
+                        dragProgress ?? (isCurrent ? controller.progress : 0),
                     activeColor: color,
                     inactiveColor: color.withValues(alpha: 0.3),
-                    onChanged: isInteractive ? controller.seek : null,
+                    onChanged: isInteractive
+                        ? (progress) => setState(() => _dragProgress = progress)
+                        : null,
+                    onChangeEnd: isInteractive ? _endDrag : null,
                   ),
                 ),
               ),
