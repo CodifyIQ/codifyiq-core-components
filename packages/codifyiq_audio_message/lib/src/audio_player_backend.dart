@@ -1,3 +1,5 @@
+import 'audio_message_source.dart';
+
 /// Processing states emitted by [AudioPlayerBackend.stateStream].
 enum AudioBackendProcessingState {
   /// Player is idle — no source loaded.
@@ -57,8 +59,8 @@ abstract interface class AudioPlayerBackend {
   /// Stream of total audio duration. Emits [null] when unknown.
   Stream<Duration?> get durationStream;
 
-  /// Loads the audio source at [url].
-  Future<void> setUrl(String url);
+  /// Loads [source], replacing any source already loaded.
+  Future<void> setSource(AudioMessageSource source);
 
   /// Starts or resumes playback.
   Future<void> play();

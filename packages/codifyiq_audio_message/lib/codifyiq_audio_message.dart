@@ -3,4 +3,5 @@ library;
 
 export 'src/audio_player_backend.dart';
 export 'src/audio_message_controller.dart';
+export 'src/audio_message_source.dart';
 export 'src/audio_message.dart';

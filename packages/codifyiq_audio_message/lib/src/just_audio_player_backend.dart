@@ -1,5 +1,6 @@
 import 'package:just_audio/just_audio.dart';
 
+import 'audio_message_source.dart';
 import 'audio_player_backend.dart';
 
 /// [AudioPlayerBackend] implementation backed by [just_audio]'s [AudioPlayer].
@@ -33,8 +34,18 @@ class JustAudioPlayerBackend implements AudioPlayerBackend {
   Stream<Duration?> get durationStream => _player.durationStream;
 
   @override
-  Future<void> setUrl(String url) async {
-    await _player.setUrl(url);
+  Future<void> setSource(AudioMessageSource source) async {
+    await switch (source) {
+      AudioMessageUriSource(:final uri, :final headers) => _player.setUrl(
+        uri.toString(),
+        headers: headers,
+      ),
+      AudioMessageFileSource(:final path) => _player.setFilePath(path),
+      AudioMessageAssetSource(:final name, :final package) => _player.setAsset(
+        name,
+        package: package,
+      ),
+    };
   }
 
   @override

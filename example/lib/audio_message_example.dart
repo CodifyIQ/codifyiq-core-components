@@ -10,8 +10,10 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 /// standard Flyer Chat [Chat] widget.
 ///
 /// Renders a static conversation with mixed text and audio messages.
-/// The [Builders.audioMessageBuilder] wires each [AudioMessage.source] to
-/// an [AudioMessageWidget] wrapped in a theme-tinted bubble.
+/// The [Builders.audioMessageBuilder] wires each [AudioMessage] to an
+/// [AudioMessageWidget] wrapped in a theme-tinted bubble. One
+/// [AudioMessageController], owned by the screen, plays one message at a
+/// time and keeps playing when a bubble scrolls out of view.
 class AudioMessageExample extends StatefulWidget {
   /// Creates an [AudioMessageExample].
   const AudioMessageExample({super.key});
@@ -28,6 +30,7 @@ class _AudioMessageExampleState extends State<AudioMessageExample> {
   static const _them = User(id: _themId, name: 'Alex');
 
   late final InMemoryChatController _chatController;
+  final _audio = AudioMessageController();
 
   @override
   void initState() {
@@ -82,6 +85,7 @@ class _AudioMessageExampleState extends State<AudioMessageExample> {
   @override
   void dispose() {
     _chatController.dispose();
+    _audio.dispose();
     super.dispose();
   }
 
@@ -103,7 +107,8 @@ class _AudioMessageExampleState extends State<AudioMessageExample> {
           audioMessageBuilder:
               (context, message, index, {required isSentByMe, groupStatus}) {
                 return _AudioBubble(
-                  url: message.source,
+                  message: message,
+                  controller: _audio,
                   isSentByMe: isSentByMe,
                 );
               },
@@ -115,9 +120,14 @@ class _AudioMessageExampleState extends State<AudioMessageExample> {
 
 /// A styled container that wraps [AudioMessageWidget] in a chat bubble.
 class _AudioBubble extends StatelessWidget {
-  const _AudioBubble({required this.url, required this.isSentByMe});
+  const _AudioBubble({
+    required this.message,
+    required this.controller,
+    required this.isSentByMe,
+  });
 
-  final String url;
+  final AudioMessage message;
+  final AudioMessageController controller;
   final bool isSentByMe;
 
   @override
@@ -131,7 +141,12 @@ class _AudioBubble extends StatelessWidget {
             : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: AudioMessageWidget(url: url),
+      child: AudioMessageWidget(
+        id: message.id,
+        source: AudioMessageSource.uri(Uri.parse(message.source)),
+        duration: message.duration,
+        controller: controller,
+      ),
     );
   }
 }

@@ -19,16 +19,47 @@ dependencies:
 ```dart
 import 'package:codifyiq_audio_message/codifyiq_audio_message.dart';
 
-// The simplest form manages its own controller from a URL.
-AudioMessage(url: 'https://example.com/clip.m4a');
-
-// Or drive it yourself for finer control (and a custom playback backend):
-final controller = AudioMessageController('https://example.com/clip.m4a');
-AudioMessage(url: controller.url, controller: controller);
+AudioMessageWidget(
+  source: AudioMessageSource.uri(Uri.parse('https://example.com/clip.m4a')),
+  // Shown until the clip loads, if you know it.
+  duration: const Duration(seconds: 42),
+);
 ```
 
+`AudioMessageSource` also has `.file` for local files and `.asset` for bundled assets, and
+`.uri` takes HTTP `headers` for private storage (ignored on the web, where browsers don't allow
+them).
+
+### Lists of messages
+
+On its own, each player has its own controller, which stops when the player is disposed. In a
+chat, where off-screen messages are disposed as the list scrolls, share one
+`AudioMessageController` owned by the screen and give each player its message's `id`:
+
+```dart
+final audio = AudioMessageController(); // dispose() with the screen
+
+AudioMessageWidget(
+  id: message.id,
+  source: AudioMessageSource.uri(Uri.parse(message.source)),
+  duration: message.duration,
+  controller: audio,
+);
+```
+
+Then starting one message stops the one that was playing, and a message keeps playing when
+it scrolls out of view; scrolled back, its player shows the current position.
+
+### Appearance
+
+`color` sets the play button and slider, and `textStyle` the time readout, for example to
+match a sent or received chat bubble. The error label and tooltips can be replaced for
+localisation.
+
+### Playback backend
+
 Pass a custom `backend` to `AudioMessageController` to substitute the default `just_audio`
-binding.
+binding, for example a test double.
 
 ---
 
