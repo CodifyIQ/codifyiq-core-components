@@ -31,9 +31,11 @@ but publish independently. **Depend on a widget and you get its dependencies; no
 | [codifyiq_social_sign_in](packages/codifyiq_social_sign_in) | [![pub](https://img.shields.io/pub/v/codifyiq_social_sign_in.svg)](https://pub.dev/packages/codifyiq_social_sign_in) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_terms_and_conditions](packages/codifyiq_terms_and_conditions) | [![pub](https://img.shields.io/pub/v/codifyiq_terms_and_conditions.svg)](https://pub.dev/packages/codifyiq_terms_and_conditions) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | [codifyiq_user_avatar](packages/codifyiq_user_avatar) | [![pub](https://img.shields.io/pub/v/codifyiq_user_avatar.svg)](https://pub.dev/packages/codifyiq_user_avatar) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| [codifyiq_video_viewer](packages/codifyiq_video_viewer) | [![pub](https://img.shields.io/pub/v/codifyiq_video_viewer.svg)](https://pub.dev/packages/codifyiq_video_viewer) | ✔ | ✔ | ✔ ³ | ✔ | — |
 
 > ¹ `ImageViewerItem.file` is unsupported on Flutter web; use `.network`, `.asset`, or a custom `ImageProvider`.
 > ² PDFs loaded via `PdfSource.uri` require CORS headers; `PdfSource.file` is unsupported on web.
+> ³ HTTP headers on `VideoSource.uri` are ignored on web, and `VideoSource.file` is unsupported there.
 
 ## Requirements
 
