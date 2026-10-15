@@ -2,6 +2,22 @@
 
 * **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
 * **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
+* `MagicLinkForm`'s "Check your inbox" panel shows the address the email
+  went to in bold, so a typo is easy to spot, and adds a hint under the code
+  field (or the body copy) that a misspelled address is the usual reason
+  nothing arrived: "No code after a few minutes? Check the spelling of your
+  email and try again." ("No link" / "No link or code" for the link modes).
+  Override it with `noCodeHint`.
+* Every piece of text in the email sign-in flow can now be overridden, e.g. to
+  localize it: `MagicLinkForm` takes `emailLabel`, `emailRequiredMessage`,
+  `invalidEmailMessage`, `sendLabel`, `sendingMessage`,
+  `sendFailureMessage`, `sentTitle`, `sentMessage` (built from the address,
+  which stays bold), `codeErrorMessage`, `resendLabel`,
+  `resendCountdownLabel` and `resendFailureMessage`; `MagicLinkCodeField`
+  takes `errorMessage`; and `SocialSignInScreen` takes
+  `backToSignInOptionsLabel`, `reEnterAddressLabel` and
+  `backToSocialLoginsLabel`. Wording that depends on the delivery mode is
+  nullable, and `null` keeps the mode's default.
 
 ## 1.1.1
 

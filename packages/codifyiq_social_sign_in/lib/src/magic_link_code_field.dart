@@ -28,12 +28,14 @@ class MagicLinkCodeField extends StatefulWidget {
   /// `null` (the default) to omit it — the widget doesn't assert an
   /// expiry/attempt-limit contract the host's backend may not have, so hosts
   /// choose their own copy.
+  /// [errorMessage] is shown under the boxes when verification fails.
   const MagicLinkCodeField({
     super.key,
     this.length = 6,
     required this.onSubmitCode,
     this.onError,
     this.helperText,
+    this.errorMessage = 'Incorrect code. Check the email and re-enter it.',
   });
 
   /// The expected code length. Defaults to 6.
@@ -51,14 +53,15 @@ class MagicLinkCodeField extends StatefulWidget {
   /// Shown under the boxes while no error is displayed. Pass `null` to omit.
   final String? helperText;
 
+  /// Shown under the boxes when [onSubmitCode] throws. Defaults to
+  /// `'Incorrect code. Check the email and re-enter it.'`.
+  final String errorMessage;
+
   @override
   State<MagicLinkCodeField> createState() => _MagicLinkCodeFieldState();
 }
 
 class _MagicLinkCodeFieldState extends State<MagicLinkCodeField> {
-  static const _wrongCodeMessage =
-      'Incorrect code. Check the email and re-enter it.';
-
   final _controller = TextEditingController();
   final _focusNode = FocusNode(debugLabel: 'MagicLinkCodeField.hiddenField');
 
@@ -152,10 +155,10 @@ class _MagicLinkCodeFieldState extends State<MagicLinkCodeField> {
         setState(() {
           _verifying = false;
           _verifyingCode = null;
-          _errorMessage = _wrongCodeMessage;
+          _errorMessage = widget.errorMessage;
           _controller.clear();
         });
-        _reportError(e, stack, _wrongCodeMessage);
+        _reportError(e, stack, widget.errorMessage);
         // Safe synchronously: `enabled` never flips, so canRequestFocus
         // holds true across this rebuild.
         _focusNode.requestFocus();
