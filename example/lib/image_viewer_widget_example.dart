@@ -6,21 +6,53 @@ import 'package:material_ui/material_ui.dart';
 ///
 /// Renders a responsive grid of thumbnails. Tapping a thumbnail pushes the
 /// full-screen viewer onto the navigation stack, opened to that image, with
-/// a Hero transition from the thumbnail. Action menu callbacks surface
-/// feedback through a [SnackBar].
-class ImageViewerWidgetExample extends StatelessWidget {
+/// a Hero transition from the thumbnail. Action callbacks surface feedback
+/// through a [SnackBar], and "Set as featured" is a header button that hides
+/// on the image that is already featured.
+class ImageViewerWidgetExample extends StatefulWidget {
   /// Creates an [ImageViewerWidgetExample].
   const ImageViewerWidgetExample({super.key});
 
+  @override
+  State<ImageViewerWidgetExample> createState() =>
+      _ImageViewerWidgetExampleState();
+}
+
+class _ImageViewerWidgetExampleState extends State<ImageViewerWidgetExample> {
   /// Demo images sourced from picsum.photos. Each picks a fixed id so the
   /// thumbnail and full image refer to the same photo.
   static const List<_DemoImage> _demoImages = [
-    _DemoImage(id: 1015, title: 'Canyon river'),
+    _DemoImage(
+      id: 1015,
+      title: 'Canyon river',
+      caption: 'A river winding through a canyon at the end of the day.',
+    ),
     _DemoImage(id: 1025, title: 'Pup at rest'),
-    _DemoImage(id: 1035, title: 'Waterfall rainbow'),
+    // Portrait, like most photos taken on a phone.
+    _DemoImage(
+      id: 593,
+      title: 'Tiger cub',
+      caption: 'Taken in portrait, the way most phone photos are.',
+      isPortrait: true,
+    ),
+    _DemoImage(
+      id: 1035,
+      title: 'Waterfall rainbow',
+      caption: 'Spray from the falls catching the afternoon light.',
+    ),
     _DemoImage(id: 1043, title: 'Valley park'),
     _DemoImage(id: 1056, title: 'Clouds'),
   ];
+
+  // The open viewer is a separate route, so it listens to this to update its
+  // header when the featured image changes.
+  final ValueNotifier<String> _featuredId = ValueNotifier('1015');
+
+  @override
+  void dispose() {
+    _featuredId.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,23 +112,30 @@ class ImageViewerWidgetExample extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
-        builder: (dialogContext) => ImageViewerWidget(
-          items: items,
-          initialIndex: initialIndex,
-          onShare: (item, index, sharePositionOrigin) =>
-              _showSnack(dialogContext, 'Share: ${item.title}'),
-          onDownload: (item, index) =>
-              _showSnack(dialogContext, 'Download: ${item.title}'),
-          onDelete: (item, index) =>
-              _showSnack(dialogContext, 'Delete: ${item.title}'),
-          actions: [
-            ImageViewerAction(
-              label: 'Set as featured',
-              icon: Icons.star_outline,
-              onSelected: (item, index) =>
-                  _showSnack(dialogContext, 'Featured: ${item.filename}'),
-            ),
-          ],
+        builder: (dialogContext) => ValueListenableBuilder(
+          valueListenable: _featuredId,
+          builder: (context, featuredId, _) => ImageViewerWidget(
+            items: items,
+            initialIndex: initialIndex,
+            onShare: (item, index, sharePositionOrigin) =>
+                _showSnack(dialogContext, 'Share: ${item.title}'),
+            onDownload: (item, index) =>
+                _showSnack(dialogContext, 'Download: ${item.title}'),
+            onDelete: (item, index) =>
+                _showSnack(dialogContext, 'Delete: ${item.title}'),
+            actions: [
+              ImageViewerAction(
+                label: 'Set as featured',
+                icon: Icons.star_outline,
+                showInAppBar: true,
+                isVisible: (item, index) => item.id != featuredId,
+                onSelected: (item, index) {
+                  _featuredId.value = item.id!;
+                  _showSnack(dialogContext, 'Featured: ${item.title}');
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -112,13 +151,25 @@ class ImageViewerWidgetExample extends StatelessWidget {
 
 /// A demo image — pairs a picsum id with a display title.
 class _DemoImage {
-  const _DemoImage({required this.id, required this.title});
+  const _DemoImage({
+    required this.id,
+    required this.title,
+    this.caption,
+    this.isPortrait = false,
+  });
 
   final int id;
   final String title;
+  final String? caption;
+  final bool isPortrait;
 
-  String get fullUrl => 'https://picsum.photos/id/$id/1600/1200';
-  String get thumbUrl => 'https://picsum.photos/id/$id/400/300';
+  String get fullUrl => isPortrait
+      ? 'https://picsum.photos/id/$id/1200/1600'
+      : 'https://picsum.photos/id/$id/1600/1200';
+  // Same shape as the full image, so it can stand in while that loads.
+  String get thumbUrl => isPortrait
+      ? 'https://picsum.photos/id/$id/300/400'
+      : 'https://picsum.photos/id/$id/400/300';
   String get heroTag => 'image-viewer-demo-$id';
 
   ImageViewerItem toItem() => ImageViewerItem.network(
@@ -126,7 +177,11 @@ class _DemoImage {
     id: '$id',
     filename: 'picsum-$id.jpg',
     title: title,
+    caption: caption,
     heroTag: heroTag,
+    // The grid has already loaded the thumbnail, so the viewer shows it at
+    // once while the full image downloads.
+    placeholder: NetworkImage(thumbUrl),
   );
 }
 

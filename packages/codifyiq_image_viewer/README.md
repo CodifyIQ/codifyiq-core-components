@@ -10,7 +10,7 @@ a local file, or any custom `ImageProvider`.
 
 ```yaml
 dependencies:
-  codifyiq_image_viewer: ^2.1.0
+  codifyiq_image_viewer: ^2.0.0
 ```
 
 ## Usage
@@ -26,11 +26,72 @@ ImageViewerWidget(
 );
 ```
 
+### Thumbnails and placeholders
+
+When a grid or list already shows a small version of each image, pass it as the item's
+`placeholder`. The viewer shows it straight away and swaps in the full image once it has
+downloaded, instead of showing a spinner:
+
+```dart
+ImageViewerItem.network(
+  photo.url,
+  placeholder: NetworkImage(photo.thumbnailUrl), // the provider the grid used
+  heroTag: photo.id,
+);
+```
+
+Give the placeholder the same aspect ratio as the full image. One that fails to load is ignored.
+
+### Layout
+
+The viewer follows the Material 3 breakpoints:
+
+* **Phones (windows narrower than 600dp, or shorter than 480dp as in landscape):** the image
+  fills the screen and the header and footer float over it on a dark gradient. Tapping the
+  image hides or shows them.
+* **Tablets, desktop and most browser windows:** the header and footer sit above and below the
+  image, which fits between them with the 24dp Material margin, so they never cover it.
+
+Override either choice:
+
+```dart
+ImageViewerWidget(
+  items: items,
+  controlsLayout: ImageViewerControlsLayout.inset, // or .overlay
+  contentPadding: const EdgeInsets.all(16),        // space around the image
+  controlsHideOnTap: false,                         // keep overlay controls up
+);
+```
+
+### Header and footer
+
+The header shows the image's `title` (or its `filename`) above the page indicator, and the
+footer shows its `caption` with a row of page dots (for 2 to 20 images). Replace either with
+your own:
+
+```dart
+ImageViewerWidget(
+  items: [
+    ImageViewerItem.network(
+      photo.url,
+      title: photo.name,
+      caption: photo.description,
+    ),
+  ],
+  titleBuilder: (context, item, index, total) => Text(item.title ?? ''),
+  footerBuilder: (context, item, index, total) =>
+      item.caption == null ? null : Text(item.caption!), // null: no footer
+);
+```
+
+`pageIndicatorBuilder` still changes the "1 / 5" text on its own.
+
 ### Actions
 
 Share, Download and Delete appear when you supply their callbacks. Give items an `id` and
-`filename` so the callbacks know which record to act on, and add your own menu entries with
-`actions`:
+`filename` so the callbacks know which record to act on, and add your own actions with
+`actions`, as overflow menu entries or, with `showInAppBar`, header buttons. `isVisible` offers
+an action only for some images:
 
 ```dart
 ImageViewerWidget(
@@ -44,11 +105,17 @@ ImageViewerWidget(
     ImageViewerAction(
       label: 'Set as featured',
       icon: Icons.star_outline,
+      showInAppBar: true,
+      isVisible: (item, index) => item.id != featuredId,
       onSelected: (item, index) => setFeatured(item.id!),
     ),
   ],
 );
 ```
+
+The viewer reads `isVisible` each time it rebuilds. If the viewer is its own route, rebuild it
+when the answer changes, for example with a `ValueListenableBuilder` around it in the route's
+builder, so the button disappears as soon as the image becomes featured.
 
 `items` can change while the viewer is open. After a delete, rebuild with the shorter list and
 the viewer moves to the neighbouring image. Removing from the list you passed in works just as

@@ -1,10 +1,13 @@
 import 'dart:convert';
 
 import 'package:codifyiq_image_viewer/codifyiq_image_viewer.dart';
+import 'package:codifyiq_image_viewer/src/page_dots.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 // A 1x1 transparent PNG, so pages have a real image to decode.
 final _png = base64Decode(
@@ -85,6 +88,19 @@ Future<void> _chooseFromOverflow(WidgetTester tester, String label) async {
   await tester.tap(find.text(label));
   await _settle(tester);
 }
+
+// Under the test clock, Chrome never finishes decoding the test image, so a
+// page stays on its loading spinner and taps never reach the image.
+const _tapSkip = kIsWeb;
+
+// These expect the mobile buttons; on web, Share and Download swap places.
+const _mobileLayoutSkip = kIsWeb;
+
+// The page dots in the footer.
+final _dots = find.descendant(
+  of: find.byType(PageDots),
+  matching: find.byType(AnimatedContainer),
+);
 
 void main() {
   group('paging', () {
@@ -354,7 +370,7 @@ void main() {
       await pumpViewer(tester, onShare: (_, _, _) {});
       expect(find.byIcon(Icons.share_outlined), findsOneWidget);
       expect(find.byIcon(Icons.more_vert), findsNothing);
-    });
+    }, skip: _mobileLayoutSkip);
 
     testWidgets('share reports the visible item, index and button rect', (
       tester,
@@ -376,7 +392,7 @@ void main() {
       expect(shared?.filename, 'b.png');
       expect(sharedIndex, 1);
       expect(origin, isNotNull);
-    });
+    }, skip: _mobileLayoutSkip);
 
     testWidgets('download and delete report the visible item', (tester) async {
       final calls = <String>[];
@@ -389,7 +405,7 @@ void main() {
       await _chooseFromOverflow(tester, 'Delete');
 
       expect(calls, ['download b 1', 'delete b 1']);
-    });
+    }, skip: _mobileLayoutSkip);
 
     testWidgets(
       'a custom action appears in the overflow and reports the item',
@@ -410,5 +426,418 @@ void main() {
         expect(calls, ['b 1']);
       },
     );
+  });
+
+  group('header and footer', () {
+    Future<void> pumpViewer(
+      WidgetTester tester, {
+      required List<ImageViewerItem> items,
+      int initialIndex = 0,
+      List<ImageViewerAction> actions = const [],
+      ImageViewerTitleBuilder? titleBuilder,
+      ImageViewerFooterBuilder? footerBuilder,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ImageViewerWidget(
+            items: items,
+            initialIndex: initialIndex,
+            actions: actions,
+            titleBuilder: titleBuilder,
+            footerBuilder: footerBuilder,
+          ),
+        ),
+      );
+      await _settle(tester);
+    }
+
+    testWidgets('the header shows the title above the page indicator', (
+      tester,
+    ) async {
+      await pumpViewer(tester, items: [_item('a'), _item('b')]);
+
+      expect(find.text('Image a'), findsOneWidget);
+      expect(find.text('1 / 2'), findsOneWidget);
+    });
+
+    testWidgets('the header falls back to the filename, then the indicator', (
+      tester,
+    ) async {
+      await pumpViewer(
+        tester,
+        items: [
+          ImageViewerItem(provider: MemoryImage(_png), filename: 'a.png'),
+          ImageViewerItem(provider: MemoryImage(_png)),
+        ],
+      );
+      expect(find.text('a.png'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await _settle(tester);
+      expect(find.text('a.png'), findsNothing);
+      expect(find.text('2 / 2'), findsOneWidget);
+    });
+
+    testWidgets('titleBuilder replaces the title', (tester) async {
+      await pumpViewer(
+        tester,
+        items: [_item('a'), _item('b')],
+        initialIndex: 1,
+        titleBuilder: (context, item, index, total) =>
+            Text('${item.id} of $total'),
+      );
+
+      expect(find.text('b of 2'), findsOneWidget);
+      expect(find.text('Image b'), findsNothing);
+    });
+
+    testWidgets('the footer shows the caption and page dots', (tester) async {
+      await pumpViewer(
+        tester,
+        items: [
+          ImageViewerItem(provider: MemoryImage(_png), caption: 'Kitchen'),
+          _item('b'),
+          _item('c'),
+        ],
+      );
+
+      expect(find.text('Kitchen'), findsOneWidget);
+      expect(_dots, findsNWidgets(3));
+    });
+
+    testWidgets('a single image without a caption has no footer', (
+      tester,
+    ) async {
+      await pumpViewer(tester, items: [_item('a')]);
+
+      expect(_dots, findsNothing);
+    });
+
+    testWidgets('more than 20 images get no dots', (tester) async {
+      await pumpViewer(
+        tester,
+        items: [for (var i = 0; i < 21; i++) _item('$i')],
+      );
+
+      expect(_dots, findsNothing);
+    });
+
+    testWidgets('footerBuilder replaces the footer, or removes it', (
+      tester,
+    ) async {
+      final captioned = ImageViewerItem(
+        provider: MemoryImage(_png),
+        caption: 'Kitchen',
+      );
+      await pumpViewer(
+        tester,
+        items: [captioned, _item('b')],
+        footerBuilder: (context, item, index, total) => Text('page $index'),
+      );
+      expect(find.text('page 0'), findsOneWidget);
+      expect(find.text('Kitchen'), findsNothing);
+
+      await pumpViewer(
+        tester,
+        items: [captioned, _item('b')],
+        footerBuilder: (context, item, index, total) => null,
+      );
+      expect(find.text('Kitchen'), findsNothing);
+      expect(_dots, findsNothing);
+    });
+
+    testWidgets('header actions show per image and report the item', (
+      tester,
+    ) async {
+      final calls = <String>[];
+      await pumpViewer(
+        tester,
+        items: [_item('a'), _item('b')],
+        actions: [
+          ImageViewerAction(
+            label: 'Set as featured',
+            icon: Icons.star_outline,
+            showInAppBar: true,
+            // 'a' is already featured.
+            isVisible: (item, index) => item.id != 'a',
+            onSelected: (item, index) => calls.add('${item.id} $index'),
+          ),
+        ],
+      );
+      expect(find.byTooltip('Set as featured'), findsNothing);
+      // Nothing left for the overflow menu.
+      expect(find.byIcon(Icons.more_vert), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await _settle(tester);
+      await tester.tap(find.byTooltip('Set as featured'));
+
+      expect(calls, ['b 1']);
+    });
+  });
+
+  group('layout', () {
+    // Sizes the test window in logical pixels.
+    void setWindowSize(WidgetTester tester, Size size) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Widget viewer({
+      List<ImageViewerItem>? items,
+      ImageViewerControlsLayout? controlsLayout,
+      EdgeInsetsGeometry? contentPadding,
+      bool controlsHideOnTap = true,
+    }) => ImageViewerWidget(
+      items: items ?? [_item('a'), _item('b')],
+      controlsLayout: controlsLayout,
+      contentPadding: contentPadding,
+      controlsHideOnTap: controlsHideOnTap,
+    );
+
+    Future<void> pumpViewer(
+      WidgetTester tester, {
+      List<ImageViewerItem>? items,
+      ImageViewerControlsLayout? controlsLayout,
+      EdgeInsetsGeometry? contentPadding,
+      bool controlsHideOnTap = true,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: viewer(
+            items: items,
+            controlsLayout: controlsLayout,
+            contentPadding: contentPadding,
+            controlsHideOnTap: controlsHideOnTap,
+          ),
+        ),
+      );
+      await _settle(tester);
+    }
+
+    Rect galleryRect(WidgetTester tester) =>
+        tester.getRect(find.byType(PhotoViewGallery));
+
+    // The area photo_view fits the image into, when padding is even.
+    Size? fitArea(WidgetTester tester) => tester
+        .widget<PhotoViewGallery>(find.byType(PhotoViewGallery))
+        .customSize;
+
+    Finder fadingHeader() => find.ancestor(
+      of: find.byType(AppBar),
+      matching: find.byType(AnimatedOpacity),
+    );
+
+    double headerOpacity(WidgetTester tester) =>
+        tester.widget<AnimatedOpacity>(fadingHeader()).opacity;
+
+    Future<void> tapImage(WidgetTester tester) async {
+      await tester.tapAt(galleryRect(tester).center);
+      // Wait out the double-tap-to-zoom window.
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('wide windows fit the image between header and footer', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(1024, 768));
+      await pumpViewer(tester);
+
+      final header = tester.getRect(find.byType(AppBar));
+      final gallery = galleryRect(tester);
+      // The gallery, and its gestures, reach the margin; the image fits
+      // inside it.
+      expect(gallery.top, header.bottom);
+      expect(gallery.left, 0);
+      expect(fitArea(tester), gallery.size - const Offset(48, 48) as Size);
+      // The header always shows.
+      expect(fadingHeader(), findsNothing);
+    });
+
+    testWidgets('compact windows show the image full screen under the header', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(400, 800));
+      await pumpViewer(tester);
+
+      expect(galleryRect(tester), const Rect.fromLTRB(0, 0, 400, 800));
+      expect(fitArea(tester), Size(kIsWeb ? 400 : 376, 800));
+      expect(fadingHeader(), findsOneWidget);
+    });
+
+    testWidgets('a phone in landscape gets the overlay layout', (tester) async {
+      setWindowSize(tester, const Size(844, 390));
+      await pumpViewer(tester);
+
+      expect(galleryRect(tester).top, 0);
+      expect(fadingHeader(), findsOneWidget);
+    });
+
+    testWidgets('rotating keeps the page being viewed', (tester) async {
+      setWindowSize(tester, const Size(1024, 768));
+      await pumpViewer(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await _settle(tester);
+      expect(find.text('2 / 2'), findsOneWidget);
+
+      setWindowSize(tester, const Size(400, 800));
+      await _settle(tester);
+
+      expect(fadingHeader(), findsOneWidget);
+      expect(find.text('2 / 2'), findsOneWidget);
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        1,
+      );
+    });
+
+    testWidgets('in compact windows, tapping the image hides the controls', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(400, 800));
+      await pumpViewer(tester);
+      expect(headerOpacity(tester), 1);
+
+      await tapImage(tester);
+      expect(headerOpacity(tester), 0);
+
+      await tapImage(tester);
+      expect(headerOpacity(tester), 1);
+    }, skip: _tapSkip);
+
+    testWidgets('tapping an image that failed to load toggles the controls', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(400, 800));
+      await pumpViewer(
+        tester,
+        items: [ImageViewerItem(provider: MemoryImage(Uint8List(8)))],
+      );
+      expect(find.text('Unable to load image'), findsOneWidget);
+
+      await tester.tap(find.text('Unable to load image'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(headerOpacity(tester), 0);
+    }, skip: _tapSkip);
+
+    testWidgets('controlsHideOnTap false keeps the controls', (tester) async {
+      setWindowSize(tester, const Size(400, 800));
+      await pumpViewer(tester, controlsHideOnTap: false);
+
+      await tapImage(tester);
+      expect(headerOpacity(tester), 1);
+    }, skip: _tapSkip);
+
+    testWidgets('controlsLayout and contentPadding override the defaults', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(1024, 768));
+      await pumpViewer(
+        tester,
+        controlsLayout: ImageViewerControlsLayout.overlay,
+        contentPadding: const EdgeInsets.all(40),
+      );
+
+      expect(galleryRect(tester), const Rect.fromLTRB(0, 0, 1024, 768));
+      expect(fitArea(tester), const Size(944, 688));
+      expect(headerOpacity(tester), 1);
+    });
+
+    testWidgets('uneven contentPadding pads the gallery itself', (
+      tester,
+    ) async {
+      setWindowSize(tester, const Size(1024, 768));
+      await pumpViewer(
+        tester,
+        controlsLayout: ImageViewerControlsLayout.overlay,
+        contentPadding: const EdgeInsets.fromLTRB(10, 20, 30, 40),
+      );
+
+      expect(galleryRect(tester), const Rect.fromLTRB(10, 20, 994, 728));
+      expect(fitArea(tester), isNull);
+    });
+
+    testWidgets('pull-to-dismiss works from the margin', (tester) async {
+      setWindowSize(tester, const Size(1024, 768));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => viewer())),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await _settle(tester);
+
+      // Down from the left margin, beside the image.
+      final start = Offset(10, galleryRect(tester).center.dy);
+      await tester.dragFrom(start, const Offset(0, 300));
+      // The drag animates away, then the route closes.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(ImageViewerWidget), findsNothing);
+    }, skip: kIsWeb);
+
+    testWidgets('Escape closes the viewer', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => viewer())),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await _settle(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(ImageViewerWidget), findsNothing);
+    });
+  });
+
+  testWidgets('shows the close button only when there is a route to close', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ImageViewerWidget(items: [_item('a')])),
+    );
+    expect(find.byIcon(Icons.close), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ImageViewerWidget(items: [_item('a')]),
+              ),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ImageViewerWidget), findsNothing);
   });
 }
