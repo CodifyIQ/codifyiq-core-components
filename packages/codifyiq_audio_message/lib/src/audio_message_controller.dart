@@ -62,6 +62,8 @@ class AudioMessageController extends ChangeNotifier {
   // Counts loads, so a load that a newer one replaced is ignored.
   int _loads = 0;
   bool _loaded = false;
+  // Seeks not yet done; the player's positions until then are from before.
+  int _pendingSeeks = 0;
   bool _disposed = false;
   bool _completedOnce = false;
   AudioPlaybackState _state = AudioPlaybackState.idle;
@@ -159,6 +161,8 @@ class AudioMessageController extends ChangeNotifier {
 
   /// Seeks [currentId] to [progress] ∈ [0, 1] of the total duration.
   ///
+  /// [position] moves to the target at once. A failed seek shows as an error.
+  ///
   /// No-op when disposed, duration unknown, or an error occurred.
   Future<void> seek(double progress) async {
     if (_disposed) return;
@@ -169,7 +173,19 @@ class AudioMessageController extends ChangeNotifier {
       milliseconds: (_duration.inMilliseconds * progress.clamp(0.0, 1.0))
           .round(),
     );
-    await _backend.seek(target);
+    final load = _loads;
+    _pendingSeeks++;
+    // Shown at once, rather than once the player next reports its position.
+    _position = target;
+    notifyListeners();
+    try {
+      await _backend.seek(target);
+    } catch (e) {
+      // Unless a newer message interrupted it.
+      if (load == _loads) _onBackendError(e);
+    } finally {
+      _pendingSeeks--;
+    }
   }
 
   void _listenToBackend() {
@@ -182,7 +198,7 @@ class AudioMessageController extends ChangeNotifier {
     _subscriptions.add(
       _backend.positionStream.listen((pos) {
         // Until the source has loaded, positions belong to the previous one.
-        if (_disposed || !_loaded) return;
+        if (_disposed || !_loaded || _pendingSeeks > 0) return;
         _position = pos;
         notifyListeners();
       }, onError: _onBackendError),
@@ -216,7 +232,10 @@ class AudioMessageController extends ChangeNotifier {
         if (_state == AudioPlaybackState.error) return;
         _state = AudioPlaybackState.idle;
       case AudioBackendProcessingState.loading:
+        _state = AudioPlaybackState.loading;
       case AudioBackendProcessingState.buffering:
+        // A seek buffers briefly; showing it would flash the play button.
+        if (_pendingSeeks > 0) return;
         _state = AudioPlaybackState.loading;
       case AudioBackendProcessingState.ready:
         _state = backendState.isPlaying

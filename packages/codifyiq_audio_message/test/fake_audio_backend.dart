@@ -14,6 +14,12 @@ class FakeAudioBackend implements AudioPlayerBackend {
   /// When set, [setSource] throws it.
   Object? loadError;
 
+  /// When set, the next [seek] waits for it instead of landing at once.
+  Completer<void>? pendingSeek;
+
+  /// When set, [seek] throws it.
+  Object? seekError;
+
   final _state = StreamController<AudioBackendState>.broadcast(sync: true);
   final _position = StreamController<Duration>.broadcast(sync: true);
   final _duration = StreamController<Duration?>.broadcast(sync: true);
@@ -69,6 +75,11 @@ class FakeAudioBackend implements AudioPlayerBackend {
   @override
   Future<void> seek(Duration position) async {
     calls.add('seek $position');
+    final pending = pendingSeek;
+    pendingSeek = null;
+    if (pending != null) await pending.future;
+    final error = seekError;
+    if (error != null) throw error;
     _position.add(position);
   }
 

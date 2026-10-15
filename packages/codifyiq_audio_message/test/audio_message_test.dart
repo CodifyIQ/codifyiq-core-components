@@ -113,6 +113,74 @@ void main() {
       await playing;
     });
 
+    test('a seek shows its target at once and ignores older positions '
+        'until it lands', () async {
+      await controller.play('a', _a);
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 10),
+      );
+      final slow = Completer<void>();
+      backend.pendingSeek = slow;
+      final seeking = controller.seek(0.5);
+      expect(controller.position, const Duration(seconds: 50));
+
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 11),
+      );
+      expect(controller.position, const Duration(seconds: 50));
+
+      slow.complete();
+      await seeking;
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 51),
+      );
+      expect(controller.position, const Duration(seconds: 51));
+    });
+
+    test('buffering during a seek keeps the message playing, and '
+        'otherwise shows it loading', () async {
+      await controller.play('a', _a);
+      backend.emitTimes(const Duration(seconds: 100));
+      final slow = Completer<void>();
+      backend.pendingSeek = slow;
+      final seeking = controller.seek(0.5);
+      backend.emit(AudioBackendProcessingState.buffering, isPlaying: true);
+      expect(controller.state, AudioPlaybackState.playing);
+      slow.complete();
+      await seeking;
+
+      backend.emit(AudioBackendProcessingState.buffering, isPlaying: true);
+      expect(controller.state, AudioPlaybackState.loading);
+    });
+
+    test('a failed seek shows as an error', () async {
+      await controller.play('a', _a);
+      backend.emitTimes(const Duration(seconds: 100));
+      backend.seekError = Exception('cannot seek');
+      await controller.seek(0.5);
+
+      expect(controller.state, AudioPlaybackState.error);
+      expect(controller.rawError, contains('cannot seek'));
+    });
+
+    test('a seek interrupted by another message is not an error', () async {
+      await controller.play('a', _a);
+      backend.emitTimes(const Duration(seconds: 100));
+      final slow = Completer<void>();
+      backend.pendingSeek = slow;
+      backend.seekError = Exception('interrupted');
+      final seeking = controller.seek(0.5);
+      await controller.play('b', _b);
+      slow.complete();
+      await seeking;
+
+      expect(controller.currentId, 'b');
+      expect(controller.state, AudioPlaybackState.playing);
+    });
+
     test('ignores a load that a newer one replaced', () async {
       final slow = Completer<void>();
       backend.pendingLoad = slow;
@@ -216,6 +284,121 @@ void main() {
       expect(find.byTooltip('Play'), findsOneWidget);
       // Not the old file's position.
       expect(find.text('00:00 / 00:00'), findsOneWidget);
+    });
+
+    testWidgets('the slider follows a drag while playing, and seeks once '
+        'when it ends', (tester) async {
+      await pumpPlayers(tester, [
+        AudioMessageWidget(id: 'a', source: _a, controller: controller),
+      ]);
+      await tester.tap(find.byTooltip('Play'));
+      await tester.pump();
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 10),
+      );
+      await tester.pump();
+      backend.calls.clear();
+
+      final slider = find.byType(Slider);
+      final drag = await tester.startGesture(tester.getCenter(slider));
+      await tester.pump();
+      await drag.moveBy(const Offset(20, 0));
+      await tester.pump();
+      final dragged = tester.widget<Slider>(slider).value;
+      expect(dragged, greaterThan(0.5));
+
+      // Playback moves on during the drag; the thumb stays under the finger.
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 11),
+      );
+      await tester.pump();
+      expect(tester.widget<Slider>(slider).value, dragged);
+      expect(backend.calls, isEmpty);
+
+      await drag.up();
+      await tester.pump();
+      expect(backend.calls.single, startsWith('seek'));
+      expect(controller.progress, closeTo(dragged, 0.001));
+      expect(tester.widget<Slider>(slider).value, closeTo(dragged, 0.001));
+    });
+
+    // Plays message a, 100 s long, and starts dragging its slider to the
+    // middle, returning the drag.
+    Future<TestGesture> startDrag(WidgetTester tester) async {
+      await pumpPlayers(tester, [
+        AudioMessageWidget(id: 'a', source: _a, controller: controller),
+      ]);
+      await tester.tap(find.byTooltip('Play'));
+      await tester.pump();
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 10),
+      );
+      await tester.pump();
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byType(Slider)),
+      );
+      await tester.pump();
+      await drag.moveBy(const Offset(20, 0));
+      await tester.pump();
+      return drag;
+    }
+
+    double sliderValue(WidgetTester tester) =>
+        tester.widget<Slider>(find.byType(Slider)).value;
+
+    testWidgets('a drag ends when the message finishes', (tester) async {
+      final drag = await startDrag(tester);
+      backend.emit(AudioBackendProcessingState.completed);
+      await tester.pump();
+      await drag.up();
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Play'));
+      await tester.pump();
+      backend.emitTimes(
+        const Duration(seconds: 100),
+        const Duration(seconds: 20),
+      );
+      await tester.pump();
+      expect(sliderValue(tester), closeTo(0.2, 0.001));
+    });
+
+    testWidgets('a slow seek does not end the next drag', (tester) async {
+      final first = await startDrag(tester);
+      final slow = Completer<void>();
+      backend.pendingSeek = slow;
+      await first.up();
+      await tester.pump();
+
+      final second = await tester.startGesture(
+        tester.getCenter(find.byType(Slider)),
+      );
+      await tester.pump();
+      await second.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      final dragged = sliderValue(tester);
+      slow.complete();
+      await tester.pump();
+
+      expect(sliderValue(tester), dragged);
+      await second.up();
+    });
+
+    testWidgets('a new controller drops the drag', (tester) async {
+      final drag = await startDrag(tester);
+      await pumpPlayers(tester, [
+        AudioMessageWidget(
+          id: 'a',
+          source: _a,
+          controller: AudioMessageController(backend: FakeAudioBackend()),
+        ),
+      ]);
+
+      expect(sliderValue(tester), 0);
+      await drag.up();
     });
 
     testWidgets('players without an id are separate messages', (tester) async {
