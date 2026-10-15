@@ -1,4 +1,5 @@
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:codifyiq_brightness_button/src/brightness_menu_items.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// A button that allows the user to select the application's theme mode.
@@ -12,11 +13,18 @@ import 'package:material_ui/material_ui.dart';
 /// viewport edge so it does not sit flush against the screen.
 class BrightnessButton extends StatelessWidget {
   /// Creates a [BrightnessButton].
+  ///
+  /// [tooltip] labels the button; [lightLabel], [darkLabel], and
+  /// [systemLabel] label its menu items.
   const BrightnessButton({
     super.key,
     this.iconColor,
     this.menuAlignmentOffset = const Offset(0, 8),
     this.menuScreenEdgeInset = 8,
+    this.tooltip = 'Switch Brightness Theme',
+    this.lightLabel = 'Light',
+    this.darkLabel = 'Dark',
+    this.systemLabel = 'System',
   });
 
   /// Icon color override.
@@ -46,20 +54,21 @@ class BrightnessButton extends StatelessWidget {
   /// Defaults to 8. Set to 0 to disable.
   final double menuScreenEdgeInset;
 
+  /// Tooltip of the button.
+  final String tooltip;
+
+  /// Label of the Light item.
+  final String lightLabel;
+
+  /// Label of the Dark item.
+  final String darkLabel;
+
+  /// Label of the System item.
+  final String systemLabel;
+
   @override
   Widget build(BuildContext context) {
     final adaptiveTheme = AdaptiveTheme.of(context);
-
-    IconData getIcon() {
-      switch (adaptiveTheme.mode) {
-        case AdaptiveThemeMode.light:
-          return Icons.light_mode_outlined;
-        case AdaptiveThemeMode.dark:
-          return Icons.dark_mode_outlined;
-        case AdaptiveThemeMode.system:
-          return Icons.brightness_auto;
-      }
-    }
 
     final inset = menuScreenEdgeInset.clamp(0, double.infinity).toDouble();
 
@@ -77,7 +86,6 @@ class BrightnessButton extends StatelessWidget {
         Builder(
           builder: (context) {
             final theme = Theme.of(context);
-            final mode = AdaptiveTheme.of(context).mode;
             return Padding(
               padding: EdgeInsetsDirectional.only(end: inset, bottom: inset),
               child: Material(
@@ -91,32 +99,12 @@ class BrightnessButton extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      MenuItemButton(
-                        onPressed: AdaptiveTheme.of(context).setLight,
-                        leadingIcon: const Icon(Icons.light_mode_outlined),
-                        trailingIcon: mode == AdaptiveThemeMode.light
-                            ? const Icon(Icons.check)
-                            : null,
-                        child: const Text('Light'),
-                      ),
-                      MenuItemButton(
-                        onPressed: AdaptiveTheme.of(context).setDark,
-                        leadingIcon: const Icon(Icons.dark_mode_outlined),
-                        trailingIcon: mode == AdaptiveThemeMode.dark
-                            ? const Icon(Icons.check)
-                            : null,
-                        child: const Text('Dark'),
-                      ),
-                      MenuItemButton(
-                        onPressed: AdaptiveTheme.of(context).setSystem,
-                        leadingIcon: const Icon(Icons.brightness_auto),
-                        trailingIcon: mode.isSystem
-                            ? const Icon(Icons.check)
-                            : null,
-                        child: const Text('System'),
-                      ),
-                    ],
+                    children: brightnessMenuItems(
+                      context,
+                      lightLabel: lightLabel,
+                      darkLabel: darkLabel,
+                      systemLabel: systemLabel,
+                    ),
                   ),
                 ),
               ),
@@ -127,8 +115,11 @@ class BrightnessButton extends StatelessWidget {
       builder:
           (BuildContext context, MenuController controller, Widget? child) {
             return IconButton(
-              icon: Icon(getIcon(), color: iconColor),
-              tooltip: 'Switch Brightness Theme',
+              icon: Icon(
+                brightnessModeIcon(adaptiveTheme.mode),
+                color: iconColor,
+              ),
+              tooltip: tooltip,
               onPressed: () {
                 if (controller.isOpen) {
                   controller.close();

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'ai_progress_indicator_example.dart';
 import 'audio_message_example.dart';
+import 'brightness_button_example.dart';
 import 'group_manager_example.dart';
 import 'image_viewer_widget_example.dart';
 import 'notification_center_example.dart';
@@ -67,6 +68,12 @@ class WidgetCatalog extends StatelessWidget {
       'description':
           'Chat-style audio message player with play/pause, progress, and duration',
       'route': AudioMessageExample(),
+    },
+    {
+      'name': 'Brightness Button',
+      'description':
+          'Light / Dark / System theme choice as a button or a menu submenu',
+      'route': BrightnessButtonExample(),
     },
     {
       'name': 'Group Manager',
