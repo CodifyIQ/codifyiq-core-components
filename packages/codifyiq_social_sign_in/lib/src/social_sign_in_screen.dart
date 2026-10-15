@@ -170,6 +170,9 @@ class SocialSignInScreen extends StatefulWidget {
     this.appBar,
     this.isProcessing = false,
     this.processingMessage = 'Signing in…',
+    this.backToSocialLoginsLabel = 'Back to social logins',
+    this.backToSignInOptionsLabel = 'Back to sign-in options',
+    this.reEnterAddressLabel = 'Re-enter address',
   }) : assert(
          !reviewerLoginEnabled ||
              onReviewerSignIn != null ||
@@ -277,6 +280,22 @@ class SocialSignInScreen extends StatefulWidget {
   ///
   /// Defaults to `'Signing in…'`.
   final String processingMessage;
+
+  /// Label of the button that leaves the revealed reviewer login.
+  ///
+  /// Defaults to `'Back to social logins'`.
+  final String backToSocialLoginsLabel;
+
+  /// Label of the button that leaves the email sign-in form.
+  ///
+  /// Defaults to `'Back to sign-in options'`.
+  final String backToSignInOptionsLabel;
+
+  /// Label of the button that returns from the "check your inbox" panel to
+  /// the email field, keeping the address so it can be corrected.
+  ///
+  /// Defaults to `'Re-enter address'`.
+  final String reEnterAddressLabel;
 
   @override
   State<SocialSignInScreen> createState() => _SocialSignInScreenState();
@@ -450,7 +469,7 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
                       TextButton.icon(
                         onPressed: _hideRevealedContent,
                         icon: const Icon(Icons.arrow_back, size: 16),
-                        label: const Text('Back to social logins'),
+                        label: Text(widget.backToSocialLoginsLabel),
                         style: TextButton.styleFrom(
                           foregroundColor: theme.colorScheme.primary,
                         ),
@@ -500,7 +519,7 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
         TextButton.icon(
           onPressed: () => _magicLinkFormKey.currentState?.returnToEmail(),
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('Re-enter address'),
+          label: Text(widget.reEnterAddressLabel),
           style: TextButton.styleFrom(
             foregroundColor: theme.colorScheme.primary,
           ),
@@ -509,7 +528,7 @@ class _SocialSignInScreenState extends State<SocialSignInScreen> {
         TextButton.icon(
           onPressed: _hideRevealedContent,
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('Back to sign-in options'),
+          label: Text(widget.backToSignInOptionsLabel),
           style: TextButton.styleFrom(
             foregroundColor: theme.colorScheme.primary,
           ),

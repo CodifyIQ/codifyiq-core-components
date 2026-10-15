@@ -12,6 +12,10 @@ import 'package:material_ui/material_ui.dart';
 /// in this examples as an optional enterprise provider behind a feature
 /// flag.
 ///
+/// The overflow menu also picks what the sign-in email delivers — a link, a
+/// link plus a code, or a code only — to show each [MagicLinkDelivery]'s
+/// copy and whether the code field appears.
+///
 /// The reviewer login easter egg is enabled (tap the logo 5 times to reveal
 /// it). Tapping any social button simulates a login handshake by enabling
 /// the processing state for a few seconds.
@@ -29,7 +33,7 @@ class SocialSignInScreenExample extends StatefulWidget {
       _SocialSignInScreenExampleState();
 }
 
-/// The fixed demo code accepted by [MagicLinkButton.onSubmitCode] below.
+/// The fixed demo code accepted by `_submitDemoCode` below.
 const _demoMagicLinkCode = '123456';
 
 class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
@@ -38,6 +42,7 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
   bool _appleEnabled = true;
   bool _microsoftEnabled = true;
   bool _magicLinkEnabled = true;
+  MagicLinkDelivery _delivery = MagicLinkDelivery.linkAndCode;
   SocialSignInError? _error;
 
   // There's deliberately no public API to dismiss revealed content — real
@@ -80,6 +85,21 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
     });
   }
 
+  Future<void> _submitDemoCode(String code) async {
+    await Future.delayed(const Duration(milliseconds: 750));
+    if (code != _demoMagicLinkCode) {
+      throw Exception('Incorrect code (simulated)');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Magic-link code accepted (simulated)')),
+    );
+    // Real apps navigate away on sign-in success instead of resetting the
+    // screen; this simulates that by rebuilding it fresh, returning to the
+    // social-login button column.
+    setState(() => _screenKey = UniqueKey());
+  }
+
   @override
   Widget build(BuildContext context) {
     return SocialSignInScreen(
@@ -101,6 +121,10 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
                   _microsoftEnabled = !_microsoftEnabled;
                 case 'magicLink':
                   _magicLinkEnabled = !_magicLinkEnabled;
+                default:
+                  _delivery = MagicLinkDelivery.values.byName(value);
+                  // Rebuild fresh so an open form picks up the new mode.
+                  _screenKey = UniqueKey();
               }
             }),
             itemBuilder: (context) => [
@@ -124,6 +148,18 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
                 checked: _magicLinkEnabled,
                 child: const Text('Magic Link'),
               ),
+              const PopupMenuDivider(),
+              for (final (delivery, label) in const [
+                (MagicLinkDelivery.link, 'Email a link'),
+                (MagicLinkDelivery.linkAndCode, 'Email a link and code'),
+                (MagicLinkDelivery.code, 'Email a code'),
+              ])
+                CheckedPopupMenuItem(
+                  value: delivery.name,
+                  checked: _delivery == delivery,
+                  enabled: _magicLinkEnabled,
+                  child: Text(label),
+                ),
             ],
           ),
           const BrightnessButton(),
@@ -166,23 +202,12 @@ class _SocialSignInScreenExampleState extends State<SocialSignInScreenExample> {
                 await Future.delayed(const Duration(milliseconds: 750));
               },
               resendCooldown: const Duration(seconds: 10),
+              delivery: _delivery,
               codeHelperText: 'Demo: use code 123-456',
-              onSubmitCode: (code) async {
-                await Future.delayed(const Duration(milliseconds: 750));
-                if (code != _demoMagicLinkCode) {
-                  throw Exception('Incorrect code (simulated)');
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Magic-link code accepted (simulated)'),
-                  ),
-                );
-                // Real apps navigate away on sign-in success instead of
-                // resetting the screen; this simulates that by rebuilding it
-                // fresh, returning to the social-login button column.
-                setState(() => _screenKey = UniqueKey());
-              },
+              // Link-only delivery has no code to verify.
+              onSubmitCode: _delivery == MagicLinkDelivery.link
+                  ? null
+                  : _submitDemoCode,
             ),
           ),
       ],

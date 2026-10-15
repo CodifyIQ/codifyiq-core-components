@@ -29,6 +29,13 @@ enum _MagicLinkPhase { email, submitting, linkSent }
 ///
 /// Can be embedded directly, or hosted by [SocialSignInScreen] via its
 /// magic-link params.
+///
+/// The "check your inbox" panel has no control of its own for going back to
+/// the email field. [SocialSignInScreen] adds one; a host embedding the form
+/// directly should show its own back control while
+/// [MagicLinkFormState.isLinkSent] (see [onLinkSentChanged]) and wire it to
+/// [MagicLinkFormState.returnToEmail], so a misspelled address can be
+/// corrected rather than resent.
 class MagicLinkForm extends StatefulWidget {
   /// Creates a [MagicLinkForm].
   ///
@@ -53,6 +60,10 @@ class MagicLinkForm extends StatefulWidget {
   /// [delivery] is what the email contains, which sets the form's copy;
   /// `null` (the default) resolves to [MagicLinkDelivery.linkAndCode] when
   /// [onSubmitCode] is set and [MagicLinkDelivery.link] otherwise.
+  ///
+  /// The remaining parameters override the form's copy, e.g. to localize it.
+  /// Those whose default depends on [effectiveDelivery] are nullable; `null`
+  /// keeps the default wording for the mode.
   const MagicLinkForm({
     super.key,
     required this.onSubmitEmail,
@@ -65,6 +76,19 @@ class MagicLinkForm extends StatefulWidget {
     this.codeLength = 6,
     this.minHeight,
     this.delivery,
+    this.emailLabel = 'Email',
+    this.emailRequiredMessage = 'Email is required',
+    this.invalidEmailMessage = 'Enter a valid email',
+    this.sendLabel,
+    this.sendingMessage,
+    this.sendFailureMessage,
+    this.sentTitle = 'Check your inbox',
+    this.sentMessage,
+    this.noCodeHint,
+    this.codeErrorMessage = 'Incorrect code. Check the email and re-enter it.',
+    this.resendLabel = 'Resend email',
+    this.resendCountdownLabel,
+    this.resendFailureMessage,
   }) : assert(
          delivery == null ||
              (delivery == MagicLinkDelivery.link) == (onSubmitCode == null),
@@ -136,6 +160,72 @@ class MagicLinkForm extends StatefulWidget {
   /// at [MagicLinkFormState.returnToEmail] while the panel is showing.
   final ValueChanged<bool>? onLinkSentChanged;
 
+  /// Label of the email field. Defaults to `'Email'`.
+  final String emailLabel;
+
+  /// Shown under the email field when it is submitted empty. Defaults to
+  /// `'Email is required'`.
+  final String emailRequiredMessage;
+
+  /// Shown under the email field when the address is malformed. Defaults to
+  /// `'Enter a valid email'`.
+  final String invalidEmailMessage;
+
+  /// Label of the send button. `null` (the default) reads `'Email me a code'`
+  /// for [MagicLinkDelivery.code] and `'Send magic link'` otherwise.
+  final String? sendLabel;
+
+  /// Shown under the spinner while the email is sending. `null` (the
+  /// default) reads `'Sending code…'` for [MagicLinkDelivery.code] and
+  /// `'Sending link…'` otherwise.
+  final String? sendingMessage;
+
+  /// Shown, and reported to [onError], when [onSubmitEmail] throws. `null`
+  /// (the default) reads `'Could not send the code. Please try again.'` for
+  /// [MagicLinkDelivery.code] and `'Could not send the link. …'` otherwise.
+  final String? sendFailureMessage;
+
+  /// Title of the "check your inbox" panel. Defaults to
+  /// `'Check your inbox'`.
+  final String sentTitle;
+
+  /// Builds the body copy of the "check your inbox" panel from the address
+  /// the email was sent to.
+  ///
+  /// The address is shown bold wherever it appears in the returned text.
+  /// `null` (the default) uses the wording for [effectiveDelivery], e.g.
+  /// `'We sent a 6-character code to <email>. Enter it below.'`.
+  final String Function(String email)? sentMessage;
+
+  /// Hint under the code field (or under the body copy when there is no code
+  /// field) that a misspelled address is the usual reason nothing arrived.
+  ///
+  /// `null` (the default) reads `'No code after a few minutes? Check the
+  /// spelling of your email and try again.'`, with "No link" or "No link or
+  /// code" for [MagicLinkDelivery.link] and [MagicLinkDelivery.linkAndCode].
+  ///
+  /// "Try again" relies on the host offering a way back to the email field;
+  /// see [MagicLinkForm].
+  final String? noCodeHint;
+
+  /// Shown under the code field when [onSubmitCode] throws. Passed to
+  /// [MagicLinkCodeField.errorMessage]. Defaults to
+  /// `'Incorrect code. Check the email and re-enter it.'`.
+  final String codeErrorMessage;
+
+  /// Label of the resend button once it is enabled. Defaults to
+  /// `'Resend email'`.
+  final String resendLabel;
+
+  /// Builds the label of the resend button while it is cooling down, from the
+  /// seconds remaining. `null` (the default) reads `'Resend in <seconds>s'`.
+  final String Function(int seconds)? resendCountdownLabel;
+
+  /// Shown, and reported to [onError], when a resend throws. `null` (the
+  /// default) reads `'Could not resend the code. Please try again.'` for
+  /// [MagicLinkDelivery.code] and `'Could not resend the link. …'` otherwise.
+  final String? resendFailureMessage;
+
   @override
   State<MagicLinkForm> createState() => MagicLinkFormState();
 
@@ -155,6 +245,19 @@ class MagicLinkForm extends StatefulWidget {
     int? codeLength,
     double? minHeight,
     MagicLinkDelivery? delivery,
+    String? emailLabel,
+    String? emailRequiredMessage,
+    String? invalidEmailMessage,
+    String? sendLabel,
+    String? sendingMessage,
+    String? sendFailureMessage,
+    String? sentTitle,
+    String Function(String email)? sentMessage,
+    String? noCodeHint,
+    String? codeErrorMessage,
+    String? resendLabel,
+    String Function(int seconds)? resendCountdownLabel,
+    String? resendFailureMessage,
   }) {
     return MagicLinkForm(
       key: key ?? this.key,
@@ -168,6 +271,19 @@ class MagicLinkForm extends StatefulWidget {
       codeLength: codeLength ?? this.codeLength,
       minHeight: minHeight ?? this.minHeight,
       delivery: delivery ?? this.delivery,
+      emailLabel: emailLabel ?? this.emailLabel,
+      emailRequiredMessage: emailRequiredMessage ?? this.emailRequiredMessage,
+      invalidEmailMessage: invalidEmailMessage ?? this.invalidEmailMessage,
+      sendLabel: sendLabel ?? this.sendLabel,
+      sendingMessage: sendingMessage ?? this.sendingMessage,
+      sendFailureMessage: sendFailureMessage ?? this.sendFailureMessage,
+      sentTitle: sentTitle ?? this.sentTitle,
+      sentMessage: sentMessage ?? this.sentMessage,
+      noCodeHint: noCodeHint ?? this.noCodeHint,
+      codeErrorMessage: codeErrorMessage ?? this.codeErrorMessage,
+      resendLabel: resendLabel ?? this.resendLabel,
+      resendCountdownLabel: resendCountdownLabel ?? this.resendCountdownLabel,
+      resendFailureMessage: resendFailureMessage ?? this.resendFailureMessage,
     );
   }
 }
@@ -177,13 +293,41 @@ class MagicLinkForm extends StatefulWidget {
 class MagicLinkFormState extends State<MagicLinkForm> {
   bool get _isCodeOnly => widget.effectiveDelivery == MagicLinkDelivery.code;
 
-  String get _sendFailureMessage => _isCodeOnly
-      ? 'Could not send the code. Please try again.'
-      : 'Could not send the link. Please try again.';
+  String get _sendFailureMessage =>
+      widget.sendFailureMessage ??
+      (_isCodeOnly
+          ? 'Could not send the code. Please try again.'
+          : 'Could not send the link. Please try again.');
 
-  String get _resendFailureMessage => _isCodeOnly
-      ? 'Could not resend the code. Please try again.'
-      : 'Could not resend the link. Please try again.';
+  String get _resendFailureMessage =>
+      widget.resendFailureMessage ??
+      (_isCodeOnly
+          ? 'Could not resend the code. Please try again.'
+          : 'Could not resend the link. Please try again.');
+
+  String _sentMessage(String email) =>
+      widget.sentMessage?.call(email) ??
+      switch (widget.effectiveDelivery) {
+        MagicLinkDelivery.link =>
+          'We sent a sign-in link to $email. Tap it to finish signing in.',
+        MagicLinkDelivery.linkAndCode =>
+          'We sent a sign-in link and a ${widget.codeLength}-character code '
+              'to $email. Tap the link, or enter the code below.',
+        MagicLinkDelivery.code =>
+          'We sent a ${widget.codeLength}-character code to $email. '
+              'Enter it below.',
+      };
+
+  String get _noCodeHint {
+    final missing = switch (widget.effectiveDelivery) {
+      MagicLinkDelivery.link => 'No link',
+      MagicLinkDelivery.linkAndCode => 'No link or code',
+      MagicLinkDelivery.code => 'No code',
+    };
+    return widget.noCodeHint ??
+        '$missing after a few minutes? Check the spelling of your email and '
+            'try again.';
+  }
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -334,9 +478,9 @@ class MagicLinkFormState extends State<MagicLinkForm> {
             TextFormField(
               controller: _emailController,
               focusNode: _emailFocusNode,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: widget.emailLabel,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
@@ -344,10 +488,10 @@ class MagicLinkFormState extends State<MagicLinkForm> {
               onFieldSubmitted: (_) => _submit(),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Email is required';
+                  return widget.emailRequiredMessage;
                 }
                 if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-                  return 'Enter a valid email';
+                  return widget.invalidEmailMessage;
                 }
                 return null;
               },
@@ -377,7 +521,10 @@ class MagicLinkFormState extends State<MagicLinkForm> {
             const SizedBox(height: 8),
             FilledButton(
               onPressed: _submit,
-              child: Text(_isCodeOnly ? 'Email me a code' : 'Send magic link'),
+              child: Text(
+                widget.sendLabel ??
+                    (_isCodeOnly ? 'Email me a code' : 'Send magic link'),
+              ),
             ),
           ],
         ),
@@ -392,12 +539,36 @@ class MagicLinkFormState extends State<MagicLinkForm> {
         const CircularProgressIndicator(),
         const SizedBox(height: 12),
         Text(
-          _isCodeOnly ? 'Sending code…' : 'Sending link…',
+          widget.sendingMessage ??
+              (_isCodeOnly ? 'Sending code…' : 'Sending link…'),
           style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],
+    );
+  }
+
+  /// The body copy, with the sent address bold wherever it appears so the
+  /// person can check it at a glance.
+  Widget _buildSentMessage(ThemeData theme) {
+    final message = _sentMessage(_sentEmail);
+    final parts = message.split(_sentEmail);
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (int i = 0; i < parts.length; i++) ...[
+            if (i > 0)
+              TextSpan(
+                text: _sentEmail,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            TextSpan(text: parts[i]),
+          ],
+        ],
+      ),
+      style: theme.textTheme.bodyMedium,
+      textAlign: TextAlign.center,
     );
   }
 
@@ -414,23 +585,9 @@ class MagicLinkFormState extends State<MagicLinkForm> {
             color: theme.colorScheme.primary,
           ),
           const SizedBox(height: 12),
-          Text('Check your inbox', style: theme.textTheme.titleMedium),
+          Text(widget.sentTitle, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
-          Text(
-            switch (widget.effectiveDelivery) {
-              MagicLinkDelivery.link =>
-                'We sent a sign-in link to $_sentEmail. Tap it to finish '
-                    'signing in.',
-              MagicLinkDelivery.linkAndCode =>
-                'We sent a sign-in link and a ${widget.codeLength}-character '
-                    'code to $_sentEmail. Tap the link, or enter the code below.',
-              MagicLinkDelivery.code =>
-                'We sent a ${widget.codeLength}-character code to '
-                    '$_sentEmail. Enter it below.',
-            },
-            style: theme.textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
+          _buildSentMessage(theme),
           // When a code accompanies the link, the code+link email is one
           // artifact: the field is the primary in-app action, so it sits
           // directly under the body copy, above the resend button.
@@ -441,8 +598,20 @@ class MagicLinkFormState extends State<MagicLinkForm> {
               onSubmitCode: widget.onSubmitCode!,
               onError: widget.onError,
               helperText: widget.codeHelperText,
+              errorMessage: widget.codeErrorMessage,
             ),
           ],
+          // The address is the likeliest thing to be wrong when nothing
+          // arrives; the hint names that cause, and the host's back
+          // affordance (or resend) is the "try again".
+          const SizedBox(height: 12),
+          Text(
+            _noCodeHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
           // Resend hugs the field it relates to (or the body copy, when
           // there's no code field) rather than the unrelated back button.
           const SizedBox(height: 8),
@@ -459,8 +628,11 @@ class MagicLinkFormState extends State<MagicLinkForm> {
                   opacity: _isResending ? 0 : 1,
                   child: Text(
                     _cooldownRemaining == 0
-                        ? 'Resend email'
-                        : 'Resend in ${_cooldownRemaining}s',
+                        ? widget.resendLabel
+                        : widget.resendCountdownLabel?.call(
+                                _cooldownRemaining,
+                              ) ??
+                              'Resend in ${_cooldownRemaining}s',
                   ),
                 ),
                 if (_isResending)

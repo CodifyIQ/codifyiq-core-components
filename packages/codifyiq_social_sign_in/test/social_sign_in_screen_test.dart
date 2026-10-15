@@ -200,6 +200,59 @@ void main() {
       expect(find.text('Continue with email'), findsOneWidget);
     });
 
+    testWidgets('copy overrides reach the hosted form and its back buttons', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          SocialSignInScreen(
+            logo: const FlutterLogo(),
+            backToSignInOptionsLabel: 'Zurück',
+            reEnterAddressLabel: 'Adresse ändern',
+            signInButtons: [
+              MagicLinkButton(
+                form: MagicLinkForm(
+                  onSubmitEmail: (email) async {},
+                  onSubmitCode: (code) async => throw Exception('bad code'),
+                  resendCooldown: Duration.zero,
+                  delivery: MagicLinkDelivery.code,
+                  emailLabel: 'E-Mail',
+                  sendLabel: 'Code senden',
+                  sentTitle: 'Posteingang prüfen',
+                  noCodeHint: 'Kein Code?',
+                  codeErrorMessage: 'Falscher Code',
+                  resendLabel: 'Erneut senden',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Continue with email'));
+      await tester.pumpAndSettle();
+      expect(find.text('E-Mail'), findsOneWidget);
+      expect(find.text('Zurück'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField), 'a@b.com');
+      await tester.tap(find.text('Code senden'));
+      await tester.pumpAndSettle();
+      expect(find.text('Posteingang prüfen'), findsOneWidget);
+      expect(find.text('Kein Code?'), findsOneWidget);
+      expect(find.text('Erneut senden'), findsOneWidget);
+      expect(find.text('Adresse ändern'), findsOneWidget);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(MagicLinkCodeField),
+          matching: find.byType(TextField),
+        ),
+        '123456',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Falscher Code'), findsOneWidget);
+    });
+
     testWidgets('cooldown disables then re-enables resend', (tester) async {
       var resendCompleter = Completer<void>();
       final codesSubmitted = <String>[];
@@ -453,6 +506,88 @@ void main() {
         ),
         throwsAssertionError,
       );
+    });
+  });
+
+  group('MagicLinkForm sent panel', () {
+    Future<void> sendEmail(WidgetTester tester, MagicLinkForm form) async {
+      await tester.pumpWidget(wrap(Scaffold(body: form)));
+      await tester.enterText(find.byType(TextFormField), 'a@b.com');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    // The bold run of the body copy, i.e. the sent address.
+    List<String> boldRuns(WidgetTester tester) {
+      final body = tester.widget<Text>(find.textContaining('We sent'));
+      final runs = <String>[];
+      body.textSpan!.visitChildren((span) {
+        if (span is TextSpan &&
+            span.style?.fontWeight == FontWeight.bold &&
+            span.text != null) {
+          runs.add(span.text!);
+        }
+        return true;
+      });
+      return runs;
+    }
+
+    final cases = {
+      MagicLinkDelivery.link: 'No link',
+      MagicLinkDelivery.linkAndCode: 'No link or code',
+      MagicLinkDelivery.code: 'No code',
+    };
+    for (final MapEntry(key: delivery, value: missing) in cases.entries) {
+      testWidgets('${delivery.name}: bold address and the mode\'s hint', (
+        tester,
+      ) async {
+        await sendEmail(
+          tester,
+          MagicLinkForm(
+            onSubmitEmail: (email) async {},
+            onSubmitCode: delivery == MagicLinkDelivery.link
+                ? null
+                : (code) async {},
+            resendCooldown: Duration.zero,
+            delivery: delivery,
+          ),
+        );
+
+        expect(boldRuns(tester), ['a@b.com']);
+        expect(
+          find.text(
+            '$missing after a few minutes? Check the spelling of your email '
+            'and try again.',
+          ),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('overrides replace the default copy', (tester) async {
+      await sendEmail(
+        tester,
+        MagicLinkForm(
+          onSubmitEmail: (email) async {},
+          onSubmitCode: (code) async {},
+          resendCooldown: const Duration(seconds: 5),
+          delivery: MagicLinkDelivery.code,
+          sentTitle: 'Posteingang prüfen',
+          sentMessage: (email) => 'We sent it to $email.',
+          noCodeHint: 'Kein Code?',
+          resendCountdownLabel: (seconds) => 'Erneut in $seconds s',
+        ),
+      );
+
+      expect(find.text('Posteingang prüfen'), findsOneWidget);
+      expect(find.text('We sent it to a@b.com.'), findsOneWidget);
+      expect(boldRuns(tester), ['a@b.com']);
+      expect(find.text('Kein Code?'), findsOneWidget);
+      expect(find.textContaining('after a few minutes'), findsNothing);
+      expect(find.text('Erneut in 5 s'), findsOneWidget);
+
+      // Let the cooldown run out so no timer outlives the test.
+      await tester.pump(const Duration(seconds: 5));
     });
   });
 
