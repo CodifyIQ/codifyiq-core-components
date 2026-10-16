@@ -18,7 +18,8 @@ viewer route, and a lightweight thumbnail tile for lists and chat bubbles.
 * **Full-screen viewer** — `VideoViewerScreen` wraps the player in a route with a close button,
   a title, and optional Share, Download and custom actions.
 * **Thumbnail tile** — `VideoThumbnailTile` shows a poster with a play badge and duration. It
-  loads no video, so a long list of them stays cheap.
+  loads no video, so a long list of them stays cheap. `semanticLabel` localises what screen
+  readers announce, and `formatVideoDuration` formats lengths the same way for your own labels.
 * **A unified `VideoSource`** — network URLs (with HTTP headers), local files and assets.
 * **Loading and errors handled** — spinners while loading and buffering, and an error state
   with Retry that you can replace with your own.
