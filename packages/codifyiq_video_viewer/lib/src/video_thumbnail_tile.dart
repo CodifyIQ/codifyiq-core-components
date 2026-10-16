@@ -27,6 +27,7 @@ class VideoThumbnailTile extends StatelessWidget {
     this.onTap,
     this.aspectRatio = 16 / 9,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.semanticLabel,
   });
 
   /// The poster image shown behind the play badge.
@@ -43,6 +44,11 @@ class VideoThumbnailTile extends StatelessWidget {
 
   /// Corner rounding of the tile.
   final BorderRadius borderRadius;
+
+  /// What screen readers announce for the tile, for example a localised
+  /// "Play video". Defaults to "Play video" when [onTap] is set and "Video"
+  /// otherwise.
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +107,7 @@ class VideoThumbnailTile extends StatelessWidget {
               ),
             Semantics(
               button: onTap != null,
-              label: onTap != null ? 'Play video' : 'Video',
+              label: semanticLabel ?? (onTap != null ? 'Play video' : 'Video'),
               child: InkWell(onTap: onTap),
             ),
           ],

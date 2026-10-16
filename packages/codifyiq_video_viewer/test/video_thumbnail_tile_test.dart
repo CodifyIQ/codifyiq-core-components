@@ -44,6 +44,17 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('announces semanticLabel instead of the default', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpTile(
+      tester,
+      VideoThumbnailTile(onTap: () {}, semanticLabel: 'Vidéo'),
+    );
+    expect(find.bySemanticsLabel('Vidéo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Play video'), findsNothing);
+    semantics.dispose();
+  });
+
   testWidgets('keeps its aspect ratio', (tester) async {
     await pumpTile(tester, const VideoThumbnailTile(aspectRatio: 4 / 3));
     expect(
@@ -68,6 +79,14 @@ void main() {
       ),
     );
     expect(find.text('1:02:03'), findsOneWidget);
+  });
+
+  test('formatVideoDuration matches the tile', () {
+    expect(formatVideoDuration(const Duration(seconds: 8)), '0:08');
+    expect(
+      formatVideoDuration(const Duration(hours: 2, seconds: 1)),
+      '2:00:01',
+    );
   });
 
   testWidgets('shows no duration when none is given', (tester) async {
