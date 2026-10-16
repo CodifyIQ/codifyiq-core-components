@@ -17,6 +17,8 @@ Select the image for a quick walkthrough:
 * Short, overridable button labels (`readPromptLabel`, `acceptLabel`) that stay on one line and
   can be localized.
 * An `isProcessing` flag that shows a progress indicator while an acceptance is being recorded.
+* An optional `changesSummary` for re-acceptance of a revised document: a "What's changed" card
+  with the full terms one tap away, and the button live without scrolling the whole document.
 * Defaults to placeholder text while your legal team finalizes the language.
 
 ## Installation
@@ -55,6 +57,27 @@ TermsAndConditionsWidget(
 );
 ```
 
+### Re-acceptance of a new version
+
+Someone who already accepted an earlier version should not have to scroll the whole document
+again. Pass `changesSummary` to open on a short summary card instead. A "Read the full terms"
+action expands the full terms in place beneath it, and the button is enabled straight away while
+only the summary shows; once the full terms are expanded the usual scroll-to-end gate applies.
+
+```dart
+TermsAndConditionsWidget(
+  termsContent: updatedTerms,
+  changesSummary: 'We now keep usage logs for 30 days instead of 90.',
+  acceptLabel: 'I agree to the updated terms',
+  onAccepted: _recordAcceptance,
+);
+```
+
+This is clickwrap, and it holds up when the full terms are reachable before agreeing (the widget
+does that), the summary is accurate (yours), and the button names what is being agreed to. Pass an
+explicit `acceptLabel` rather than relying on the default `'Accept'`, and record which version was
+accepted alongside the acceptance.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -65,6 +88,9 @@ TermsAndConditionsWidget(
 | `readPromptLabel` | `String` | `'Read to accept'` | Button label while the terms have not been scrolled to the end. |
 | `acceptLabel` | `String` | `'Accept'` | Button label once the terms have been scrolled to the end. |
 | `isProcessing` | `bool` | `false` | While `true`, disables the button and replaces its label with a progress indicator. |
+| `changesSummary` | `String?` | `null` | Markdown summary of what changed. When set and not blank, opens on a summary card with the full terms one tap away. |
+| `changesHeaderText` | `String` | `"What's changed"` | Heading of the summary card. |
+| `readFullTermsLabel` | `String` | `'Read the full terms'` | Label of the action that expands the full terms beneath the summary. |
 
 The default labels are short so they stay on one line down to a 360dp-wide screen at a 1.3x
 accessibility text scale. If you override them — or support narrower screens — keep them brief;

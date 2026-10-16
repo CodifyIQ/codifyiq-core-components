@@ -286,6 +286,26 @@ void main() {
       expect(find.text('00:00 / 00:00'), findsOneWidget);
     });
 
+    testWidgets('new headers, such as a refreshed token, keep it playing', (
+      tester,
+    ) async {
+      AudioMessageWidget player(String token) => AudioMessageWidget(
+        id: 'a',
+        source: AudioMessageSource.uri(
+          Uri.parse('https://example.com/a.m4a'),
+          headers: {'Authorization': token},
+        ),
+        controller: controller,
+      );
+      await pumpPlayers(tester, [player('x')]);
+      await tester.tap(find.byTooltip('Play'));
+      await tester.pump();
+
+      await pumpPlayers(tester, [player('y')]);
+      expect(backend.calls, isNot(contains('pause')));
+      expect(find.byTooltip('Pause'), findsOneWidget);
+    });
+
     testWidgets('the slider follows a drag while playing, and seeks once '
         'when it ends', (tester) async {
       await pumpPlayers(tester, [
@@ -475,7 +495,7 @@ void main() {
       ),
       AudioMessageSource.uri(
         Uri.parse('https://example.com/a.m4a'),
-        headers: const {'Authorization': 'x'},
+        headers: const {'Authorization': 'y'},
       ),
     );
     expect(
