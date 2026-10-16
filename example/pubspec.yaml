@@ -18,6 +18,7 @@ dependencies:
   codifyiq_ai_progress_indicator: ^2.0.0
   codifyiq_audio_message: ^2.0.0
   codifyiq_brightness_button: ^2.0.0
+  codifyiq_chat_attachments: ^1.0.0
   codifyiq_group_manager: ^2.0.0
   codifyiq_image_viewer: ^2.0.0
   codifyiq_notification_center: ^2.0.0
