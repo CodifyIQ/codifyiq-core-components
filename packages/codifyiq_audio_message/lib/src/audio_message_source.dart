@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// The source from which an audio message is loaded.
 ///
 /// Construct one of the concrete variants and hand it to an
@@ -47,24 +45,17 @@ final class AudioMessageUriSource extends AudioMessageSource {
 
   /// Optional HTTP headers sent with the request, e.g. for authentication.
   /// Ignored on web.
+  ///
+  /// Not part of the source's identity: a source with new headers, such as a
+  /// refreshed token, is the same message and keeps playing.
   final Map<String, String>? headers;
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is AudioMessageUriSource &&
-          other.uri == uri &&
-          mapEquals(other.headers, headers));
+      other is AudioMessageUriSource && other.uri == uri;
 
   @override
-  int get hashCode => Object.hash(
-    uri,
-    headers == null
-        ? null
-        : Object.hashAllUnordered(
-            headers!.entries.map((e) => Object.hash(e.key, e.value)),
-          ),
-  );
+  int get hashCode => uri.hashCode;
 }
 
 /// An [AudioMessageSource] backed by a local file path.

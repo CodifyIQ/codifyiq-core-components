@@ -4,6 +4,7 @@
 * **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
 * **Breaking:** `AudioMessageWidget` takes an `AudioMessageSource` instead of a `url` string: `.uri` (with optional HTTP `headers` for private storage), `.file` for local files, or `.asset` for bundled assets. `AudioPlayerBackend.setUrl` is now `setSource`.
 * **Breaking:** one `AudioMessageController` now plays many messages. Create it without a URL, share it between the players on a screen, and give each player an `id`: only one message plays at a time, and a message keeps playing when its player is disposed, for example when a chat bubble scrolls out of view. A player without a controller still creates its own.
+* A URI source is identified by its URI alone, so rebuilding it with new `headers`, such as a refreshed auth token, keeps the message playing.
 * `duration` shows a known length before the clip loads, instead of `00:00`.
 * `color` and `textStyle` set the play button, slider and time readout, for example to match a chat bubble.
 * Dragging the slider now moves smoothly and seeks once when released, instead of fighting playback and jumping back to the current position. The time readout follows the drag, and the play button no longer flickers while seeking during playback.
