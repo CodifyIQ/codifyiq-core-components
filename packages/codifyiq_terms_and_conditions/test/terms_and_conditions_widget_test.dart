@@ -2,6 +2,7 @@ import 'package:codifyiq_terms_and_conditions/codifyiq_terms_and_conditions.dart
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// Terms long enough to overflow any test viewport, so the scroll gate stays
 /// closed until the test explicitly scrolls to the end.
@@ -17,6 +18,7 @@ Widget _harness({
   bool isProcessing = false,
   String? readPromptLabel,
   String? acceptLabel,
+  String? changesSummary,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -26,6 +28,7 @@ Widget _harness({
         isProcessing: isProcessing,
         readPromptLabel: readPromptLabel ?? 'Read to accept',
         acceptLabel: acceptLabel ?? 'Accept',
+        changesSummary: changesSummary,
       ),
     ),
   );
@@ -280,6 +283,164 @@ void main() {
         label: 'Read to accept',
         width: 360,
       );
+    });
+  });
+
+  group('changes summary', () {
+    const summary = 'We now keep usage logs for 30 days instead of 90.';
+    const body = '## Section Heading\n\nFull body text.';
+
+    testWidgets('shows the summary instead of the body and enables Accept', (
+      tester,
+    ) async {
+      var accepted = 0;
+      await tester.pumpWidget(
+        _harness(
+          changesSummary: summary,
+          acceptLabel: 'I agree to the updated terms',
+          onAccepted: () => accepted++,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text("What's changed"), findsOneWidget);
+      expect(find.textContaining('30 days'), findsOneWidget);
+      expect(find.text('Read the full terms'), findsOneWidget);
+      // The summary is Markdown too; only the full body is absent.
+      expect(find.byType(GptMarkdown), findsOneWidget);
+      expect(find.textContaining('Full body text'), findsNothing);
+      expect(find.text('I agree to the updated terms'), findsOneWidget);
+      expect(_button(tester).onPressed, isNotNull);
+
+      await tester.tap(find.byType(FilledButton));
+      expect(accepted, 1);
+    });
+
+    testWidgets('expands the body under the summary and gates Accept again', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(changesSummary: summary, onAccepted: () {}),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Read the full terms'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GptMarkdown), findsNWidgets(2));
+      expect(find.textContaining('30 days'), findsOneWidget);
+      expect(find.text('Read the full terms'), findsNothing);
+      expect(find.text('Read to accept'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -20000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Accept'), findsOneWidget);
+      expect(_button(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('opens the gate at once when the expanded body fits', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(
+          changesSummary: summary,
+          termsContent: body,
+          onAccepted: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Read the full terms'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GptMarkdown), findsNWidgets(2));
+      expect(_button(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('collapses the body again when the terms are replaced', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(changesSummary: summary, onAccepted: () {}),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Read the full terms'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GptMarkdown), findsNWidgets(2));
+
+      await tester.pumpWidget(
+        _harness(
+          changesSummary: summary,
+          termsContent: body,
+          onAccepted: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GptMarkdown), findsOneWidget);
+      expect(find.text('Read the full terms'), findsOneWidget);
+    });
+
+    testWidgets('keeps the read action visible however long the summary is', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(changesSummary: _longTerms, onAccepted: () {}),
+      );
+      await tester.pumpAndSettle();
+
+      // The action sits outside the scroll view, next to the button, so it
+      // is on screen without scrolling even though the summary overflows.
+      final action = find.text('Read the full terms');
+      expect(action, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: action,
+        ),
+        findsNothing,
+      );
+      expect(_button(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('treats a blank summary as none and keeps the gate', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(changesSummary: '  \n', onAccepted: () {}),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text("What's changed"), findsNothing);
+      expect(find.text('Read the full terms'), findsNothing);
+      expect(find.byType(GptMarkdown), findsOneWidget);
+      expect(find.text('Read to accept'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+    });
+
+    testWidgets('uses the header and action overrides', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TermsAndConditionsWidget(
+              termsContent: body,
+              changesSummary: summary,
+              changesHeaderText: 'Nouveautés',
+              readFullTermsLabel: 'Lire les conditions complètes',
+              onAccepted: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nouveautés'), findsOneWidget);
+      expect(find.text('Lire les conditions complètes'), findsOneWidget);
     });
   });
 

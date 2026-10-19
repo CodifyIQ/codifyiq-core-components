@@ -3,6 +3,15 @@
 * **Breaking:** now built on [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone Material library, instead of the copy bundled in the Flutter SDK. Your app must use `material_ui` too, otherwise the widgets won't pick up your theme. To migrate your app, run `dart fix --apply --code=migrate_design_widgets`.
 * **Breaking:** requires Flutter 3.44 / Dart 3.12 or later.
 * The Markdown content keeps following your app's light and dark themes; no extra setup is needed for it.
+* Added `changesSummary` (Markdown, like `termsContent`) for re-acceptance of a revised document. When set, the
+  widget opens on a "What's changed" card with a "Read the full terms" action
+  that expands the full terms in place beneath it. The acceptance button is live
+  at once while only the summary shows, and falls back to the scroll-to-end gate
+  once the full terms are expanded. Pass an explicit `acceptLabel` such as
+  `'I agree to the updated terms'` so the button names what is being agreed to.
+  Leaving `changesSummary` null keeps the existing behaviour.
+* Added `changesHeaderText` and `readFullTermsLabel` to localize or reword the
+  summary card's heading and its read action.
 
 ## 1.1.0
 

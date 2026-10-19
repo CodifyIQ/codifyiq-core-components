@@ -12,7 +12,10 @@ import 'package:material_ui/material_ui.dart';
 /// * `isProcessing`, held true while the acceptance is recorded, which
 ///   disables the button and shows a progress indicator;
 /// * `readPromptLabel` and `acceptLabel`, which the app bar's translate
-///   button swaps to French to show that the button can be localized.
+///   button swaps to French to show that the button can be localized;
+/// * `changesSummary`, which the app bar's update button toggles to show the
+///   re-acceptance flow for a revised document: a "What's changed" card with
+///   the full terms one tap away.
 class TermsAndConditionsWidgetExample extends StatefulWidget {
   /// Creates an instance of [TermsAndConditionsWidgetExample].
   ///
@@ -39,6 +42,18 @@ class _TermsAndConditionsWidgetExampleState
   /// Whether to override the button's default English labels with French
   /// ones, demonstrating that a non-English host can translate them.
   bool _useFrenchLabels = false;
+
+  /// Whether to present the terms as a revision of an already-accepted
+  /// version, opening on a summary of what changed instead of the full text.
+  bool _showChangesSummary = false;
+
+  /// What changed since the version the user last accepted. Keep this
+  /// accurate: the agreement rests on it.
+  static const String _changesSummary =
+      'Since the version you accepted on **October 6, 2025**:\n\n'
+      '- Section 3 now also counts owning Dodgers merchandise as fandom.\n'
+      '- Section 7 caps our liability at the fees you paid in the last 12 months.\n'
+      '- Section 10 has a new support address.';
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +123,16 @@ class _TermsAndConditionsWidgetExampleState
         title: const Text('Terms and Conditions Example'),
         actions: [
           IconButton(
+            icon: Icon(
+              _showChangesSummary ? Icons.article : Icons.article_outlined,
+            ),
+            tooltip: _showChangesSummary
+                ? 'Show the full terms (first acceptance)'
+                : 'Show a summary of changes (re-acceptance)',
+            onPressed: () =>
+                setState(() => _showChangesSummary = !_showChangesSummary),
+          ),
+          IconButton(
             icon: const Icon(Icons.translate),
             tooltip: _useFrenchLabels
                 ? 'Use default button labels'
@@ -126,9 +151,27 @@ class _TermsAndConditionsWidgetExampleState
         readPromptLabel: _useFrenchLabels
             ? 'Lire pour accepter'
             : 'Read to accept',
-        acceptLabel: _useFrenchLabels ? 'Accepter' : 'Accept',
+        acceptLabel: _acceptLabel,
+        // Omit to show the full terms from the start, as on a first
+        // acceptance.
+        changesSummary: _showChangesSummary ? _changesSummary : null,
+        changesHeaderText: _useFrenchLabels ? 'Nouveautés' : "What's changed",
+        readFullTermsLabel: _useFrenchLabels
+            ? 'Lire les conditions complètes'
+            : 'Read the full terms',
       ),
     );
+  }
+
+  /// On re-acceptance the button should name what is being agreed to, so the
+  /// summary mode uses a fuller label than the default 'Accept'.
+  String get _acceptLabel {
+    if (_showChangesSummary) {
+      return _useFrenchLabels
+          ? "J'accepte les conditions mises à jour"
+          : 'I agree to the updated terms';
+    }
+    return _useFrenchLabels ? 'Accepter' : 'Accept';
   }
 
   /// Callback function invoked when the terms and conditions are accepted.
