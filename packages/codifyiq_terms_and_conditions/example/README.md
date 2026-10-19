@@ -34,5 +34,18 @@ TermsAndConditionsWidget(
 );
 ```
 
+For re-acceptance of a revised document, pass `changesSummary` to open on a
+"What's changed" card with the full terms one tap away, and name the terms in
+the button label:
+
+```dart
+TermsAndConditionsWidget(
+  termsContent: updatedTerms,
+  changesSummary: 'We now keep usage logs for 30 days instead of 90.',
+  acceptLabel: 'I agree to the updated terms',
+  onAccepted: _recordAcceptance,
+);
+```
+
 A runnable catalog demonstrating every CodifyIQ component lives in the
 [`example/` app at the repository root](https://github.com/CodifyIQ/codifyiq-core-components/tree/dev/example).
